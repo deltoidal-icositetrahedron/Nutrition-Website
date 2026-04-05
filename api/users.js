@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     }
 
     const { data: existing } = await supabase
-      .from("users")
+      .from("Users")
       .select("id")
       .eq("username", regUsername.toLowerCase().trim())
       .maybeSingle();
@@ -34,7 +34,7 @@ export default async function handler(req, res) {
     const hashed = await bcrypt.hash(password, 10);
 
     const { data, error } = await supabase
-      .from("users")
+      .from("Users")
       .insert({
         username: regUsername.toLowerCase().trim(),
         password: hashed,
@@ -61,7 +61,7 @@ export default async function handler(req, res) {
     const isPhone = loginId.startsWith("+");
 
     const { data: user, error } = await supabase
-      .from("users")
+      .from("Users")
       .select("id, username, password, height, weight, entries")
       .or(
         isPhone
@@ -88,7 +88,7 @@ export default async function handler(req, res) {
     if (!userId) return res.status(400).json({ error: "userId required." });
 
     const { data, error } = await supabase
-      .from("users")
+      .from("Users")
       .update({ height: heightIn || null, weight: weightLbs || null })
       .eq("id", userId)
       .select("id, username, height, weight, entries")
@@ -103,7 +103,7 @@ export default async function handler(req, res) {
     if (!userId || !entry) return res.status(400).json({ error: "userId and entry required." });
 
     const { data: current, error: fetchErr } = await supabase
-      .from("users")
+      .from("Users")
       .select("entries")
       .eq("id", userId)
       .single();
@@ -113,7 +113,7 @@ export default async function handler(req, res) {
     const updated = [...(current.entries || []), entry];
 
     const { data, error } = await supabase
-      .from("users")
+      .from("Users")
       .update({ entries: updated })
       .eq("id", userId)
       .select("id, username, height, weight, entries")
@@ -128,7 +128,7 @@ export default async function handler(req, res) {
     if (userId == null || index == null) return res.status(400).json({ error: "userId and index required." });
 
     const { data: current, error: fetchErr } = await supabase
-      .from("users")
+      .from("Users")
       .select("entries")
       .eq("id", userId)
       .single();
@@ -138,7 +138,7 @@ export default async function handler(req, res) {
     const updated = (current.entries || []).filter((_, i) => i !== index);
 
     const { data, error } = await supabase
-      .from("users")
+      .from("Users")
       .update({ entries: updated })
       .eq("id", userId)
       .select("id, username, height, weight, entries")
