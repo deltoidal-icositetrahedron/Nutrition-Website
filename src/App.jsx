@@ -476,6 +476,22 @@ If this is a food chemical or ingredient (e.g. citric acid, MSG, aspartame, vita
 If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
 
     try {
+      // 1. Check MongoDB cache first (skipped silently if running locally without Vercel CLI)
+      try {
+        const cacheRes = await fetch(`/api/getResult?query=${encodeURIComponent(q)}`);
+        const cacheData = await cacheRes.json();
+        if (cacheData.cached) {
+          setResult(cacheData.result);
+          setActiveTab("benefits");
+          window.scrollTo({ top:0, behavior:"smooth" });
+          setLoading(false);
+          return;
+        }
+      } catch (_) {
+        // API routes not available locally, skipping cache
+      }
+
+      // 2. Call Gemini
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -503,6 +519,18 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
       if (firstBrace === -1 || lastBrace === -1) { setNotFound(true); setLoading(false); return; }
 
       const parsed = JSON.parse(text.slice(firstBrace, lastBrace + 1));
+
+      // 3. Save to MongoDB for future lookups (skipped silently if running locally)
+      try {
+        await fetch("/api/saveResult", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ query: q, result: parsed }),
+        });
+      } catch (_) {
+        // API routes not available locally, skipping save
+      }
+
       setResult(parsed);
       setActiveTab("benefits");
       window.scrollTo({ top:0, behavior:"smooth" });
@@ -558,7 +586,7 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
     return (
       <div style={{ background:"#0d0d0d", minHeight:"100vh", color:"#e8e6e1" }}>
         <nav style={{ position:"sticky", top:0, zIndex:100, background:"rgba(13,13,13,0.92)", backdropFilter:"blur(12px)", borderBottom:"1px solid #2a2a2a", padding:"14px 40px", display:"flex", alignItems:"center", gap:16 }}>
-          <span onClick={() => setPage("main")} style={{ fontFamily:"'DM Mono',monospace", fontSize:13, letterSpacing:"0.15em", color:"#c8f064", textTransform:"uppercase", cursor:"pointer" }}>NutriLex</span>
+          <span onClick={() => setPage("main")} style={{ fontFamily:"'DM Mono',monospace", fontSize:13, letterSpacing:"0.15em", color:"#c8f064", textTransform:"uppercase", cursor:"pointer" }}>NutriFax</span>
           <span style={{ color:"#333", fontSize:12 }}>//</span>
           <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#444" }}>image analysis</span>
         </nav>
@@ -572,7 +600,7 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
     return (
       <div style={{ background:"#0d0d0d", minHeight:"100vh", color:"#e8e6e1" }}>
         <nav style={{ position:"sticky", top:0, zIndex:100, background:"rgba(13,13,13,0.92)", backdropFilter:"blur(12px)", borderBottom:"1px solid #2a2a2a", padding:"14px 40px", display:"flex", alignItems:"center", gap:16 }}>
-          <span onClick={() => setPage("main")} style={{ fontFamily:"'DM Mono',monospace", fontSize:13, letterSpacing:"0.15em", color:"#c8f064", textTransform:"uppercase", cursor:"pointer" }}>NutriLex</span>
+          <span onClick={() => setPage("main")} style={{ fontFamily:"'DM Mono',monospace", fontSize:13, letterSpacing:"0.15em", color:"#c8f064", textTransform:"uppercase", cursor:"pointer" }}>NutriFax</span>
           <span style={{ color:"#333", fontSize:12 }}>//</span>
           <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#444" }}>label result</span>
         </nav>
@@ -651,7 +679,7 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
       <div className="scan-line" />
 
       <nav style={{ position:"sticky", top:0, zIndex:100, background:"rgba(13,13,13,0.92)", backdropFilter:"blur(12px)", borderBottom:"1px solid var(--border)", padding:"14px 40px", display:"flex", alignItems:"center", gap:16 }}>
-        <span onClick={() => { setResult(null); setHistory([]); setQuery(""); setNotFound(false); setError(""); }} style={{ fontFamily:"'DM Mono',monospace", fontSize:13, letterSpacing:"0.15em", color:"var(--accent)", textTransform:"uppercase", cursor:"pointer" }}>NutriLex</span>
+        <span onClick={() => { setResult(null); setHistory([]); setQuery(""); setNotFound(false); setError(""); }} style={{ fontFamily:"'DM Mono',monospace", fontSize:13, letterSpacing:"0.15em", color:"var(--accent)", textTransform:"uppercase", cursor:"pointer" }}>NutriFax</span>
         <span style={{ color:"#333", fontSize:12 }}>//</span>
         {history.length > 0 ? (
           <>
@@ -873,7 +901,7 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
         )}
 
         <div style={{ marginTop:80, paddingTop:40, borderTop:"1px solid var(--border)", display:"flex", justifyContent:"space-between", flexWrap:"wrap", gap:10 }}>
-          <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#333" }}>© 2025 NutriLex — AI Food Intelligence</span>
+          <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#333" }}>© 2025 NutriFax — AI Food Intelligence</span>
           <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#333" }}>Powered by Gemini 2.5 Flash</span>
         </div>
       </div>
