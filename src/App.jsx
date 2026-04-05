@@ -16,7 +16,7 @@ const essentialLabel = {
   toxic_in_high_amounts: "TOXIC IN HIGH AMOUNTS",
   essential_but_overconsumed: "ESSENTIAL BUT OVERCONSUMED"
 };
-const suggestions = ["apple", "salmon", "oat milk", "white rice", "dark chocolate"];
+const suggestions = ["apple", "salmon", "oat milk", "white rice", "dark chocolate", "broccoli"];
 
 const GLOBAL_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
@@ -85,6 +85,7 @@ Extract all data and respond ONLY with this JSON (no markdown, no backticks):
   "productName": "Product name if visible, else 'Unknown Product'",
   "emoji": "relevant emoji",
   "nutrition": {
+    "servingSize": "Xg or Xml or X pieces etc",
     "calories": "Xkcal",
     "totalFat": "Xg",
     "saturatedFat": "Xg",
@@ -97,13 +98,14 @@ Extract all data and respond ONLY with this JSON (no markdown, no backticks):
     "protein": "Xg"
   },
   "ingredients": ["ingredient1", "ingredient2"],
-"chemicals": [
+  "chemicals": [
     {"name": "Additive name", "danger": "high/medium/low", "desc": "What it is and why it is concerning"}
   ],
   "summary": "2-3 sentence overall assessment of this product's healthiness."
 }
 
 IMPORTANT RULES FOR CHEMICALS: Only include genuinely harmful additives such as artificial preservatives, synthetic dyes, or known carcinogens. Do NOT include common essential nutrients like sodium, potassium, calcium, iron, vitamins, or natural sugars. True high risk examples: Red 40, BHA, BHT, sodium nitrite, TBHQ, carrageenan, aspartame, acesulfame-K. Do NOT flag: sodium, potassium, calcium, iron, vitamin C, vitamin D, citric acid, lecithin, natural flavors.
+
 CASE 2 — If this is a photo of a food (e.g. an apple, pizza, burger, salad):
 Identify the food and respond ONLY with this JSON (no markdown, no backticks):
 {
@@ -263,7 +265,7 @@ function LabelResultPage({ data, onBack, onChemicalClick }) {
         .label-back-btn:hover { border-color:var(--accent) !important; color:var(--accent) !important; }
         .chem-click-btn { border-radius:6px; padding:22px; cursor:pointer; text-align:left; color:var(--text) !important; transition:all 0.25s; width:100%; }
         .chem-click-btn:hover { background:#1a1f14 !important; transform:translateY(-2px); box-shadow:0 0 24px rgba(200,240,100,0.12); }
-        .ing-tag { border-radius:4px; padding:4px 12px; font-size:13px; cursor:default; transition:all 0.2s; display:inline-block; }
+        .ing-tag { border-radius:4px; padding:4px 12px; font-size:13px; cursor:pointer; transition:all 0.2s; display:inline-block; }
         .ing-tag.high-risk { background:rgba(255,77,77,0.12) !important; border-color:rgba(255,77,77,0.4) !important; color:#ff4d4d !important; animation:subtle-pulse 2.5s ease-in-out infinite; }
         .ing-tag.high-risk:hover { background:rgba(255,77,77,0.2) !important; }
       `}</style>
@@ -301,49 +303,56 @@ function LabelResultPage({ data, onBack, onChemicalClick }) {
         </div>
 
         {activeTab === "nutrition" && (
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:12 }}>
-            {Object.entries(data.nutrition).filter(([,v]) => v && v !== "0g" && v !== "0mg" && v !== "0kcal").map(([k, v]) => (
-              <div key={k} style={{ background:"#141414", border:"1px solid #2a2a2a", borderRadius:6, padding:"16px 20px", textAlign:"center" }}>
-                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:18, color:"var(--accent)", fontWeight:500 }}>{v}</div>
-                <div style={{ fontSize:11, color:"#555", fontFamily:"monospace", textTransform:"uppercase", marginTop:4 }}>{k.replace(/([A-Z])/g, ' $1').trim()}</div>
+          <div>
+            {data.nutrition.servingSize && (
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#555", letterSpacing:"0.1em", marginBottom:16, padding:"10px 16px", background:"#1a1a1a", border:"1px solid #2a2a2a", borderRadius:6, display:"inline-block" }}>
+                PER SERVING — <span style={{ color:"var(--accent)" }}>{data.nutrition.servingSize}</span>
               </div>
-            ))}
+            )}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:12 }}>
+              {Object.entries(data.nutrition).filter(([k,v]) => k !== "servingSize" && v && v !== "0g" && v !== "0mg" && v !== "0kcal").map(([k, v]) => (
+                <div key={k} style={{ background:"#141414", border:"1px solid #2a2a2a", borderRadius:6, padding:"16px 20px", textAlign:"center" }}>
+                  <div style={{ fontFamily:"'DM Mono',monospace", fontSize:18, color:"var(--accent)", fontWeight:500 }}>{v}</div>
+                  <div style={{ fontSize:11, color:"#555", fontFamily:"monospace", textTransform:"uppercase", marginTop:4 }}>{k.replace(/([A-Z])/g, ' $1').trim()}</div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
         {activeTab === "ingredients" && (
-        <div style={{ background:"#141414", border:"1px solid #2a2a2a", borderRadius:6, padding:"20px 24px" }}>
+          <div style={{ background:"#141414", border:"1px solid #2a2a2a", borderRadius:6, padding:"20px 24px" }}>
             <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:"#555", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:8 }}>// full ingredient list — click any to explore</div>
             {highRiskChemicals.length > 0 && (
-            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14, fontFamily:"'DM Mono',monospace", fontSize:11, color:"#ff4d4d" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14, fontFamily:"'DM Mono',monospace", fontSize:11, color:"#ff4d4d" }}>
                 <span>⚠</span> High risk ingredients are highlighted in red
-            </div>
+              </div>
             )}
             <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
-            {data.ingredients?.map((ing, i) => {
+              {data.ingredients?.map((ing, i) => {
                 const simplified = ing
-                .replace(/\s*\[.*?\]/g, "")
-                .replace(/\s*\(.*?\)/g, "")
-                .replace(/,.*$/, "")
-                .trim();
+                  .replace(/\s*\[.*?\]/g, "")
+                  .replace(/\s*\(.*?\)/g, "")
+                  .replace(/,.*$/, "")
+                  .trim();
                 const searchTerm = simplified.length > 2 ? simplified : ing.split(/[,([]/)[0].trim();
                 const risk = isHighRisk(ing);
                 return (
-                <button key={i}
+                  <button key={i}
                     className={`ing-tag ${risk ? "high-risk" : ""}`}
                     onClick={() => onChemicalClick(searchTerm)}
                     style={{ background: risk ? undefined : "#1e1e1e", border:`1px solid ${risk ? undefined : "#333"}`, color: risk ? undefined : "#e8e6e1", cursor:"pointer", transition:"all 0.2s" }}
                     onMouseEnter={e => { if (!risk) { e.currentTarget.style.borderColor="var(--accent)"; e.currentTarget.style.color="var(--accent)"; e.currentTarget.style.background="rgba(200,240,100,0.05)"; }}}
                     onMouseLeave={e => { if (!risk) { e.currentTarget.style.borderColor="#333"; e.currentTarget.style.color="#e8e6e1"; e.currentTarget.style.background="#1e1e1e"; }}}
                     title={`Search: ${searchTerm}`}
-                >
+                  >
                     {risk && <span style={{ marginRight:5 }}>⚠</span>}{ing}
-                </button>
+                  </button>
                 );
-            })}
+              })}
             </div>
             <div style={{ marginTop:14, fontFamily:"'DM Mono',monospace", fontSize:10, color:"#444" }}>click any ingredient to explore it →</div>
-        </div>
+          </div>
         )}
 
         {activeTab === "chemicals" && (
@@ -415,7 +424,7 @@ If this is a real food or drink, respond ONLY with a valid JSON object — no ma
   "type": "food",
   "name": "Full food name",
   "emoji": "single relevant emoji",
-  "category": "category e.g. Fruit / Dairy / Grain / Fish / Processed",
+  "category": "category e.g. Fruit / Vegetable / Dairy / Grain / Fish / Meat / Processed / Beverage",
   "summary": "2 sentence overview of this food",
   "benefits": [
     {"title": "Benefit name", "desc": "1-2 sentence explanation"},
@@ -434,6 +443,7 @@ If this is a real food or drink, respond ONLY with a valid JSON object — no ma
     {"name": "Chemical or ingredient name", "danger": "high / medium / low", "desc": "What it is and why it matters"}
   ],
   "nutrition": {
+    "servingSize": "Xg or Xml or X pieces etc",
     "calories": "Xkcal",
     "carbs": "Xg",
     "fiber": "Xg",
@@ -450,7 +460,7 @@ If this is a food chemical or ingredient (e.g. citric acid, MSG, aspartame, vita
   "emoji": "single relevant emoji",
   "category": "category e.g. Flavor / Preservative / Texture / Naturally Occurring / Heavy Metal / Vitamin",
   "essentiality": "nonessential / essential / toxic / toxic_in_high_amounts / essential_but_overconsumed",
-      "summary": "2 sentence overview of this ingredient",
+  "summary": "2 sentence overview of this ingredient",
   "benefits": [
     {"title": "Benefit name", "desc": "1-2 sentence explanation"},
     {"title": "Benefit name", "desc": "1-2 sentence explanation"},
@@ -544,39 +554,47 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
   const navigateTo = (name) => analyzeFood(name, true);
 
   const goBack = () => {
-  if (history.length === 0) return;
-  const prev = history[history.length - 1];
-  setHistory(h => h.slice(0, -1));
+    if (history.length === 0) return;
+    const prev = history[history.length - 1];
+    setHistory(h => h.slice(0, -1));
 
-  if (prev.isImageResult) {
-    // Go back to label page if it exists, otherwise image upload page
-    if (labelData) setPage("label");
-    else setPage("image");
-    setResult(null);
-    setQuery("");
-    return;
-  }
+    if (prev.isImageResult) {
+      if (labelData) setPage("label");
+      else setPage("image");
+      setResult(null);
+      setQuery("");
+      return;
+    }
 
-  setQuery(prev.query);
-  setResult(prev.result);
-  setActiveTab(prev.activeTab);
-  setNotFound(false);
-  setError("");
-  window.scrollTo({ top: 0, behavior: "smooth" });
-};
+    setQuery(prev.query);
+    setResult(prev.result);
+    setActiveTab(prev.activeTab);
+    setNotFound(false);
+    setError("");
+    window.scrollTo({ top:0, behavior:"smooth" });
+  };
 
   const handleSuggestion = (s) => { setQuery(s); analyzeFood(s); };
 
-    const handleImageResult = (res) => {
+  const handleImageResult = (res) => {
     if (res.type === "navigate") {
-        // Save label page to history so back button returns to it
-        setHistory(h => [...h, { query: "__image__", result: null, activeTab: "benefits", isImageResult: true }]);
-        analyzeFood(res.foodName, false);
+      setHistory(h => [...h, { query: "__image__", result: null, activeTab: "benefits", isImageResult: true }]);
+      analyzeFood(res.foodName, false);
     } else if (res.type === "label") {
-        setLabelData(res.data);
-        setPage("label");
+      setLabelData(res.data);
+      setPage("label");
     }
-    };
+  };
+
+  const goToMain = () => {
+    setCamTooltip(false);
+    setResult(null);
+    setHistory([]);
+    setQuery("");
+    setNotFound(false);
+    setError("");
+    setPage("main");
+  };
 
   const isIngredient = result?.type === "ingredient";
   const tabs = isIngredient ? ["benefits", "risks", "found in"] : ["benefits", "risks", "chemicals"];
@@ -586,11 +604,11 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
     return (
       <div style={{ background:"#0d0d0d", minHeight:"100vh", color:"#e8e6e1" }}>
         <nav style={{ position:"sticky", top:0, zIndex:100, background:"rgba(13,13,13,0.92)", backdropFilter:"blur(12px)", borderBottom:"1px solid #2a2a2a", padding:"14px 40px", display:"flex", alignItems:"center", gap:16 }}>
-          <span onClick={() => setPage("main")} style={{ fontFamily:"'DM Mono',monospace", fontSize:13, letterSpacing:"0.15em", color:"#c8f064", textTransform:"uppercase", cursor:"pointer" }}>NutriFax</span>
+          <span onClick={goToMain} style={{ fontFamily:"'DM Mono',monospace", fontSize:13, letterSpacing:"0.15em", color:"#c8f064", textTransform:"uppercase", cursor:"pointer" }}>Nutrifax</span>
           <span style={{ color:"#333", fontSize:12 }}>//</span>
           <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#444" }}>image analysis</span>
         </nav>
-        <ImagePage onBack={() => setPage("main")} onResult={handleImageResult} />
+        <ImagePage onBack={() => { setCamTooltip(false); setPage("main"); }} onResult={handleImageResult} />
       </div>
     );
   }
@@ -600,7 +618,7 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
     return (
       <div style={{ background:"#0d0d0d", minHeight:"100vh", color:"#e8e6e1" }}>
         <nav style={{ position:"sticky", top:0, zIndex:100, background:"rgba(13,13,13,0.92)", backdropFilter:"blur(12px)", borderBottom:"1px solid #2a2a2a", padding:"14px 40px", display:"flex", alignItems:"center", gap:16 }}>
-          <span onClick={() => setPage("main")} style={{ fontFamily:"'DM Mono',monospace", fontSize:13, letterSpacing:"0.15em", color:"#c8f064", textTransform:"uppercase", cursor:"pointer" }}>NutriFax</span>
+          <span onClick={goToMain} style={{ fontFamily:"'DM Mono',monospace", fontSize:13, letterSpacing:"0.15em", color:"#c8f064", textTransform:"uppercase", cursor:"pointer" }}>Nutrifax</span>
           <span style={{ color:"#333", fontSize:12 }}>//</span>
           <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#444" }}>label result</span>
         </nav>
@@ -610,11 +628,11 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
           onChemicalClick={(name) => {
             setHistory(h => [...h, { query: "__image__", result: null, activeTab: "benefits", isImageResult: true }]);
             analyzeFood(name, false);
-            }}
+          }}
         />
       </div>
     );
-  } 
+  }
 
   // ── Main page ──
   return (
@@ -679,7 +697,7 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
       <div className="scan-line" />
 
       <nav style={{ position:"sticky", top:0, zIndex:100, background:"rgba(13,13,13,0.92)", backdropFilter:"blur(12px)", borderBottom:"1px solid var(--border)", padding:"14px 40px", display:"flex", alignItems:"center", gap:16 }}>
-        <span onClick={() => { setResult(null); setHistory([]); setQuery(""); setNotFound(false); setError(""); }} style={{ fontFamily:"'DM Mono',monospace", fontSize:13, letterSpacing:"0.15em", color:"var(--accent)", textTransform:"uppercase", cursor:"pointer" }}>NutriFax</span>
+        <span onClick={goToMain} style={{ fontFamily:"'DM Mono',monospace", fontSize:13, letterSpacing:"0.15em", color:"var(--accent)", textTransform:"uppercase", cursor:"pointer" }}>Nutrifax</span>
         <span style={{ color:"#333", fontSize:12 }}>//</span>
         {history.length > 0 ? (
           <>
@@ -688,7 +706,7 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
                 <span className="breadcrumb-item" style={{ cursor:"pointer", transition:"color 0.2s" }}
                   onClick={() => { const prev = history[i]; setHistory(hh => hh.slice(0,i)); setQuery(prev.query); setResult(prev.result); setActiveTab(prev.activeTab); setNotFound(false); setError(""); window.scrollTo({top:0,behavior:"smooth"}); }}
                   onMouseEnter={e => e.target.style.color="var(--accent)"} onMouseLeave={e => e.target.style.color="#444"}
-                >{h.result?.name || h.query}</span>
+                >{h.isImageResult ? "Image Result" : h.result?.name || h.query}</span>
                 <span className="breadcrumb-sep">›</span>
               </span>
             ))}
@@ -731,7 +749,15 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
             )}
             <div style={{ width:1, height:24, background:"#2a2a2a", flexShrink:0 }} />
             <div style={{ position:"relative", flexShrink:0 }}>
-              <button className="cam-btn" onClick={() => setPage("image")} onMouseEnter={() => setCamTooltip(true)} onMouseLeave={() => setCamTooltip(false)}>
+            <button
+                className="cam-btn"
+                onClick={() => { setCamTooltip(false); setPage("image"); }}
+                onMouseEnter={() => { if (!window.matchMedia("(hover: none)").matches) setCamTooltip(true); }}
+                onMouseLeave={() => setCamTooltip(false)}
+                onTouchStart={() => setCamTooltip(false)}
+                onTouchEnd={() => setCamTooltip(false)}
+                onPointerLeave={() => setCamTooltip(false)}
+            >
                 <svg className="cam-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
                   <circle cx="12" cy="13" r="4"/>
@@ -751,7 +777,9 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
             {suggestions.map(s => <button key={s} className="suggest-chip" onClick={() => handleSuggestion(s)}>{s}</button>)}
           </div>
           {history.length > 0 && (
-            <button className="back-btn" onClick={goBack}>← back to {history[history.length-1].isImageResult ? "image result" : history[history.length-1].result?.name || "previous"}</button>
+            <button className="back-btn" onClick={goBack}>
+              ← back to {history[history.length-1].isImageResult ? "image result" : history[history.length-1].result?.name || "previous"}
+            </button>
           )}
         </div>
 
@@ -797,13 +825,20 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
             </div>
 
             {!isIngredient && result.nutrition && (
-              <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:6, padding:"16px 24px", marginBottom:32, display:"flex", gap:32, flexWrap:"wrap" }}>
-                {Object.entries(result.nutrition).map(([k,v]) => (
-                  <div key={k} style={{ textAlign:"center" }}>
-                    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:16, color:"var(--accent)", fontWeight:500 }}>{v}</div>
-                    <div style={{ fontSize:11, color:"#555", fontFamily:"monospace", textTransform:"uppercase", marginTop:2 }}>{k}</div>
+              <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:6, padding:"16px 24px", marginBottom:32 }}>
+                {result.nutrition.servingSize && (
+                  <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#555", letterSpacing:"0.1em", marginBottom:14, paddingBottom:12, borderBottom:"1px solid var(--border)" }}>
+                    PER SERVING — <span style={{ color:"var(--accent)" }}>{result.nutrition.servingSize}</span>
                   </div>
-                ))}
+                )}
+                <div style={{ display:"flex", gap:32, flexWrap:"wrap" }}>
+                  {Object.entries(result.nutrition).filter(([k]) => k !== "servingSize").map(([k,v]) => (
+                    <div key={k} style={{ textAlign:"center" }}>
+                      <div style={{ fontFamily:"'DM Mono',monospace", fontSize:16, color:"var(--accent)", fontWeight:500 }}>{v}</div>
+                      <div style={{ fontSize:11, color:"#555", fontFamily:"monospace", textTransform:"uppercase", marginTop:2 }}>{k.replace(/([A-Z])/g, ' $1').trim()}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -901,7 +936,7 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
         )}
 
         <div style={{ marginTop:80, paddingTop:40, borderTop:"1px solid var(--border)", display:"flex", justifyContent:"space-between", flexWrap:"wrap", gap:10 }}>
-          <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#333" }}>© 2025 NutriFax — AI Food Intelligence</span>
+          <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#333" }}>© 2025 Nutrifax — AI Food Intelligence</span>
           <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#333" }}>Powered by Gemini 2.5 Flash</span>
         </div>
       </div>
