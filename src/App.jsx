@@ -2,6 +2,10 @@ import { useState, useRef, useEffect } from "react";
 
 const dangerColor = { high: "#ff4d4d", medium: "#ff9800", low: "#ffd600" };
 const dangerLabel = { high: "HIGH RISK", medium: "MODERATE", low: "LOW RISK" };
+const benefitTag = {
+  essential: { label: "BENEFICIAL", color: "#4cff91" },
+  essential_but_overconsumed: { label: "POTENTIALLY BENEFICIAL", color: "#c8f064" },
+};
 const essentialColor = {
   nonessential: "#888",
   essential: "#c8f064",
@@ -438,12 +442,11 @@ If this is a real food or drink, respond ONLY with a valid JSON object — no ma
     {"title": "Risk name", "desc": "1-2 sentence explanation"}
   ],
   "chemicals": [
-    {"name": "Chemical or ingredient name", "danger": "high / medium / low", "desc": "What it is and why it matters"},
-    {"name": "Chemical or ingredient name", "danger": "high / medium / low", "desc": "What it is and why it matters"},
-    {"name": "Chemical or ingredient name", "danger": "high / medium / low", "desc": "What it is and why it matters"}
+  {"name": "Chemical or ingredient name", "danger": "high / medium / low", "essentiality": "none / essential / essential_but_overconsumed", "desc": "What it is and why it matters"},
+  {"name": "Chemical or ingredient name", "danger": "high / medium / low", "essentiality": "none / essential / essential_but_overconsumed", "desc": "What it is and why it matters"},
+  {"name": "Chemical or ingredient name", "danger": "high / medium / low", "essentiality": "none / essential / essential_but_overconsumed", "desc": "What it is and why it matters"}
   ],
-  "nutrition": {
-    "servingSize": "Xg or Xml or X pieces etc",
+  "servingSize": "Xg or Xml or X pieces etc",
     "calories": "Xkcal",
     "carbs": "Xg",
     "fiber": "Xg",
@@ -813,11 +816,18 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
               <div style={{ flex:1 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap", marginBottom:6 }}>
                   <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"var(--accent)", letterSpacing:"0.15em", textTransform:"uppercase" }}>{result.category}</div>
-                  {isIngredient && result.essentiality && (
-                    <span className="chem-badge" style={{ background:`${essentialColor[result.essentiality]||"#555"}18`, color:essentialColor[result.essentiality]||"#555", border:`1px solid ${essentialColor[result.essentiality]||"#555"}40` }}>
-                      {essentialLabel[result.essentiality]||result.essentiality.toUpperCase()}
-                    </span>
-                  )}
+                    {isIngredient && result.essentiality && (
+                    <>
+                        <span className="chem-badge" style={{ background:`${essentialColor[result.essentiality]||"#555"}18`, color:essentialColor[result.essentiality]||"#555", border:`1px solid ${essentialColor[result.essentiality]||"#555"}40` }}>
+                        {essentialLabel[result.essentiality]||result.essentiality.toUpperCase()}
+                        </span>
+                        {(result.essentiality === "essential" || result.essentiality === "essential_but_overconsumed") && (
+                        <span className="chem-badge" style={{ background:`${benefitTag[result.essentiality].color}18`, color:benefitTag[result.essentiality].color, border:`1px solid ${benefitTag[result.essentiality].color}40` }}>
+                            {benefitTag[result.essentiality].label}
+                        </span>
+                        )}
+                    </>
+                    )}
                 </div>
                 <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:"2.2rem", fontWeight:700, marginBottom:10 }}>{result.name}</h2>
                 <p style={{ color:"var(--muted)", lineHeight:1.7, fontSize:15, maxWidth:600 }}>{result.summary}</p>
@@ -894,8 +904,13 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
                       <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
                         <span className="chem-name" style={{ fontFamily:"'DM Mono',monospace", fontSize:14, fontWeight:500 }}>{c.name}</span>
                         <span className="chem-badge" style={{ background:`${dangerColor[c.danger]||"#555"}18`, color:dangerColor[c.danger]||"#555", border:`1px solid ${dangerColor[c.danger]||"#555"}40` }}>
-                          {dangerLabel[c.danger]||"UNKNOWN"}
+                        {dangerLabel[c.danger]||"UNKNOWN"}
                         </span>
+                        {c.danger !== "high" && c.danger !== "medium" && c.essentiality && benefitTag[c.essentiality] && (
+                        <span className="chem-badge" style={{ background:`${benefitTag[c.essentiality].color}18`, color:benefitTag[c.essentiality].color, border:`1px solid ${benefitTag[c.essentiality].color}40` }}>
+                            {benefitTag[c.essentiality].label}
+                        </span>
+                        )}
                       </div>
                       <span className="nav-arrow">→</span>
                     </div>
@@ -909,16 +924,16 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
             {activeTab==="found in" && isIngredient && (
               <div className="stagger" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:14 }}>
                 <div style={{ gridColumn:"1 / -1", fontFamily:"'DM Mono',monospace", fontSize:11, color:"#444", letterSpacing:"0.12em", marginBottom:4 }}>// click any food to explore it</div>
-                {result.foundIn?.map((f,i) => (
-                <button key={i} className="found-in-card" onClick={() => navigateTo(f.name)} style={{ flexDirection:"column", alignItems:"flex-start", gap:8 }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:14, width:"100%" }}>
-                    <span style={{ fontSize:28, flexShrink:0 }}>{f.emoji}</span>
-                    <span className="food-name" style={{ fontSize:15, flex:1 }}>{f.name}</span>
-                    <span className="nav-arrow">→</span>
-                    </div>
-                    {f.context && (
-                    <p style={{ fontSize:12, color:"var(--muted)", lineHeight:1.55, paddingLeft:42, textAlign:"left" }}>{f.context}</p>
-                    )}
+                    {result.foundIn?.map((f,i) => (
+                    <button key={i} className="found-in-card" onClick={() => navigateTo(f.name)} style={{ flexDirection:"column", alignItems:"flex-start", gap:8 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:14, width:"100%" }}>
+                        <span style={{ fontSize:28, flexShrink:0 }}>{f.emoji}</span>
+                        <span className="food-name" style={{ fontSize:15, flex:1 }}>{f.name}</span>
+                        <span className="nav-arrow">→</span>
+                        </div>
+                        {f.context && (
+                        <p style={{ fontSize:12, color:"var(--muted)", lineHeight:1.55, paddingLeft:42, textAlign:"left" }}>{f.context}</p>
+                        )}
                 </button>
                 ))}
               </div>
