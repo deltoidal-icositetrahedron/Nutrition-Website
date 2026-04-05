@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import promptText from './prompt.txt?raw';
 
 const dangerColor = { high: "#ff4d4d", medium: "#ff9800", low: "#ffd600" };
 const dangerLabel = { high: "HIGH RISK", medium: "MODERATE", low: "LOW RISK" };
@@ -417,73 +418,10 @@ export default function App() {
     setError("");
     setPage("main");
 
-    const prompt = `Analyze the input: "${q}".
+    const fileContent = promptText;
+    const prompt = `Analyze the input: "${q}".\n\n${promptText}`;
 
-If this is a real food or drink, respond ONLY with a valid JSON object — no markdown, no backticks, no explanation — in this exact format:
-{
-  "type": "food",
-  "name": "Full food name",
-  "emoji": "single relevant emoji",
-  "category": "category e.g. Fruit / Vegetable / Dairy / Grain / Fish / Meat / Processed / Beverage",
-  "summary": "2 sentence overview of this food",
-  "benefits": [
-    {"title": "Benefit name", "desc": "1-2 sentence explanation"},
-    {"title": "Benefit name", "desc": "1-2 sentence explanation"},
-    {"title": "Benefit name", "desc": "1-2 sentence explanation"},
-    {"title": "Benefit name", "desc": "1-2 sentence explanation"}
-  ],
-  "risks": [
-    {"title": "Risk name", "desc": "1-2 sentence explanation"},
-    {"title": "Risk name", "desc": "1-2 sentence explanation"},
-    {"title": "Risk name", "desc": "1-2 sentence explanation"}
-  ],
-  "chemicals": [
-    {"name": "Chemical or ingredient name", "danger": "high / medium / low", "desc": "What it is and why it matters"},
-    {"name": "Chemical or ingredient name", "danger": "high / medium / low", "desc": "What it is and why it matters"},
-    {"name": "Chemical or ingredient name", "danger": "high / medium / low", "desc": "What it is and why it matters"}
-  ],
-  "nutrition": {
-    "servingSize": "Xg or Xml or X pieces etc",
-    "calories": "Xkcal",
-    "carbs": "Xg",
-    "fiber": "Xg",
-    "sugar": "Xg",
-    "protein": "Xg",
-    "fat": "Xg"
-  }
-}
-
-If this is a food chemical or ingredient (e.g. citric acid, MSG, aspartame, vitamin C, lead acetate), respond ONLY with a valid JSON object — no markdown, no backticks, no explanation — in this exact format:
-{
-  "type": "ingredient",
-  "name": "Full ingredient name",
-  "emoji": "single relevant emoji",
-  "category": "category e.g. Flavor / Preservative / Texture / Naturally Occurring / Heavy Metal / Vitamin",
-  "essentiality": "nonessential / essential / toxic / toxic_in_high_amounts / essential_but_overconsumed",
-  "summary": "2 sentence overview of this ingredient",
-  "benefits": [
-    {"title": "Benefit name", "desc": "1-2 sentence explanation"},
-    {"title": "Benefit name", "desc": "1-2 sentence explanation"},
-    {"title": "Benefit name", "desc": "1-2 sentence explanation"},
-    {"title": "Benefit name", "desc": "1-2 sentence explanation"}
-  ],
-  "risks": [
-    {"title": "Risk name", "desc": "1-2 sentence explanation"},
-    {"title": "Risk name", "desc": "1-2 sentence explanation"},
-    {"title": "Risk name", "desc": "1-2 sentence explanation"}
-  ],
-  "foundIn": [
-    {"name": "Food or source name", "emoji": "emoji", "context": "1 sentence explaining exactly how and under what conditions this ingredient is present — e.g. naturally occurring, only in contaminated sources, added during processing, byproduct of cooking, etc."},
-    {"name": "Food or source name", "emoji": "emoji", "context": "1 sentence explaining exactly how and under what conditions this ingredient is present"},
-    {"name": "Food or source name", "emoji": "emoji", "context": "1 sentence explaining exactly how and under what conditions this ingredient is present"},
-    {"name": "Food or source name", "emoji": "emoji", "context": "1 sentence explaining exactly how and under what conditions this ingredient is present"},
-    {"name": "Food or source name", "emoji": "emoji", "context": "1 sentence explaining exactly how and under what conditions this ingredient is present"},
-    {"name": "Food or source name", "emoji": "emoji", "context": "1 sentence explaining exactly how and under what conditions this ingredient is present"}
-  ],
-  "sourcing": "2-4 sentence explanation describing how it is grown, processed, or industrially synthesized, with ecological impact and potential contaminants."
-}
-
-If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
+    ;
 
     try {
       // 1. Check MongoDB cache first (skipped silently if running locally without Vercel CLI)
