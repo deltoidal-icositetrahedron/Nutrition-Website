@@ -2,23 +2,34 @@ import { useState, useRef } from "react";
 
 const dangerColor = { high: "#ff4d4d", medium: "#ff9800", low: "#ffd600" };
 const dangerLabel = { high: "HIGH RISK", medium: "MODERATE", low: "LOW RISK" };
-const essentialColor = { essential: "#c8f064", toxic: "#ff4d4d", both: "#ff9800" };
+const essentialColor = { nonessential: "#888", essential: "#c8f064", toxic: "#ff4d4d", essential_but_overconsumed: "#ff9800" };
 const essentialLabel = { nonessential: "NONESSENTIAL", essential: "ESSENTIAL", toxic: "TOXIC", essential_but_overconsumed: "ESSENTIAL BUT OVERCONSUMED" };
 const suggestions = ["apple", "salmon", "oat milk", "white rice", "dark chocolate"];
 
 export default function App() {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState(null);
+  const [history, setHistory] = useState([]); // navigation stack
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("benefits");
   const [error, setError] = useState("");
   const inputRef = useRef(null);
 
-  const analyzeFood = async (overrideQuery) => {
+  const analyzeFood = async (overrideQuery, pushHistory = false) => {
     const q = (overrideQuery ?? query).trim();
     if (!q) return;
 
+    // Push current result to history before navigating
+    if (pushHistory && result) {
+      setHistory(h => [...h, { query, result, activeTab }]);
+    }
+
+    if (!pushHistory) {
+      setHistory([]);
+    }
+
+    setQuery(q);
     setLoading(true);
     setResult(null);
     setNotFound(false);
@@ -89,8 +100,7 @@ If this is a food chemical or ingredient (e.g. citric acid, MSG, aspartame, vita
   "sourcing": "2-4 sentence explanation describing how it is grown, processed, or industrially synthesized, with ecological impact and potential contaminants."
 }
 
-If the input satisfies none of the above, ONLY reply with "NOT_FOOD".
-`;
+If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
 
     try {
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -123,6 +133,7 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".
       const parsed = JSON.parse(text.slice(firstBrace, lastBrace + 1));
       setResult(parsed);
       setActiveTab("benefits");
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       if (err instanceof SyntaxError) {
         setError("Could not parse response. Please try again.");
@@ -132,6 +143,22 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".
     } finally {
       setLoading(false);
     }
+  };
+
+  const navigateTo = (name) => {
+    analyzeFood(name, true);
+  };
+
+  const goBack = () => {
+    if (history.length === 0) return;
+    const prev = history[history.length - 1];
+    setHistory(h => h.slice(0, -1));
+    setQuery(prev.query);
+    setResult(prev.result);
+    setActiveTab(prev.activeTab);
+    setNotFound(false);
+    setError("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleSuggestion = (s) => { setQuery(s); analyzeFood(s); };
@@ -151,7 +178,7 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
         @keyframes fade-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-        .result-enter { animation: fade-in 0.5s ease forwards; }
+        .result-enter { animation: fade-in 0.4s ease forwards; }
         .stagger > * { opacity: 0; animation: rise 0.45s ease forwards; }
         .stagger > *:nth-child(1) { animation-delay: 0.04s; }
         .stagger > *:nth-child(2) { animation-delay: 0.10s; }
@@ -174,8 +201,25 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".
         .analyze-btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .spinner { width: 16px; height: 16px; border: 2px solid #0d0d0d; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }
         .float-emoji { display: inline-block; animation: float 3s ease-in-out infinite; }
-        .found-in-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 18px 22px; display: flex; align-items: center; gap: 14px; transition: border-color 0.2s, transform 0.2s; }
-        .found-in-card:hover { border-color: #3a3a3a; transform: translateY(-2px); }
+
+        .clickable-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 22px; transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s, background 0.25s; cursor: pointer; text-align: left; width: 100%; color: var(--text); }
+        .clickable-card:hover { border-color: var(--accent); transform: translateY(-3px); background: #1a1f14; box-shadow: 0 0 24px rgba(200,240,100,0.12), 0 0 0 1px rgba(200,240,100,0.08); }
+        .clickable-card:hover .nav-arrow { opacity: 1; transform: translateX(0); }
+        .clickable-card:hover .chem-name { color: var(--accent); letter-spacing: 0.06em; }
+        .clickable-card .chem-name { transition: color 0.2s, letter-spacing 0.2s; color: var(--text); }
+
+        .found-in-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 18px 22px; display: flex; align-items: center; gap: 14px; transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s, background 0.25s; cursor: pointer; width: 100%; text-align: left; color: var(--text); }
+        .found-in-card:hover { border-color: var(--accent); transform: translateY(-3px); background: #1a1f14; box-shadow: 0 0 24px rgba(200,240,100,0.12), 0 0 0 1px rgba(200,240,100,0.08); }
+        .found-in-card:hover .nav-arrow { opacity: 1; transform: translateX(0); }
+        .found-in-card:hover .food-name { color: var(--accent); letter-spacing: 0.03em; }
+        .found-in-card .food-name { transition: color 0.2s, letter-spacing 0.2s; color: var(--text); }
+        
+        .back-btn { background: none; border: 1px solid var(--border); border-radius: 4px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.1em; padding: 6px 14px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
+        .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        .breadcrumb-item { font-family: 'DM Mono', monospace; font-size: 11px; color: #444; }
+        .breadcrumb-sep { font-family: 'DM Mono', monospace; font-size: 11px; color: #333; margin: 0 6px; }
+
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: var(--bg); }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
@@ -184,24 +228,62 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".
       <div className="scan-line" />
 
       <nav style={{ position: "sticky", top: 0, zIndex: 100, background: "rgba(13,13,13,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)", padding: "14px 40px", display: "flex", alignItems: "center", gap: 16 }}>
-        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, letterSpacing: "0.15em", color: "var(--accent)", textTransform: "uppercase" }}>NutriLex</span>
+        <span
+          onClick={() => { setResult(null); setHistory([]); setQuery(""); setNotFound(false); setError(""); }}
+          style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, letterSpacing: "0.15em", color: "var(--accent)", textTransform: "uppercase", cursor: "pointer" }}
+        >NutriLex</span>
         <span style={{ color: "#333", fontSize: 12 }}>//</span>
-        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#444", letterSpacing: "0.1em" }}>AI-powered food intelligence</span>
+
+        {/* Breadcrumb trail */}
+        {history.length > 0 && (
+          <>
+            {history.map((h, i) => (
+              <span key={i} style={{ display: "flex", alignItems: "center" }}>
+                <span
+                  className="breadcrumb-item"
+                  style={{ cursor: "pointer", transition: "color 0.2s" }}
+                  onClick={() => {
+                    const prev = history[i];
+                    setHistory(h2 => h2.slice(0, i));
+                    setQuery(prev.query);
+                    setResult(prev.result);
+                    setActiveTab(prev.activeTab);
+                    setNotFound(false);
+                    setError("");
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  onMouseEnter={e => e.target.style.color = "var(--accent)"}
+                  onMouseLeave={e => e.target.style.color = "#444"}
+                >{h.result?.name || h.query}</span>
+                <span className="breadcrumb-sep">›</span>
+              </span>
+            ))}
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "var(--muted)" }}>{result?.name || query}</span>
+          </>
+        )}
+
+        {history.length === 0 && (
+          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#444", letterSpacing: "0.1em" }}>AI-powered food intelligence</span>
+        )}
       </nav>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "80px 32px 60px" }}>
 
-        <div style={{ marginBottom: 60, animation: "fade-in 0.6s ease forwards" }}>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, letterSpacing: "0.2em", color: "var(--accent)", textTransform: "uppercase", marginBottom: 20 }}>— nutritional intelligence database</div>
-          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "clamp(2.8rem, 6vw, 5rem)", fontWeight: 900, lineHeight: 1, letterSpacing: "-0.02em", background: "linear-gradient(135deg, #e8e6e1 0%, #666 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            Know what<br />you <span style={{ WebkitTextFillColor: "var(--accent)" }}>consume.</span>
-          </h1>
-          <p style={{ marginTop: 24, fontSize: 16, color: "var(--muted)", lineHeight: 1.7, maxWidth: 520, fontWeight: 300 }}>
-            Type any food, drink, or ingredient. Our AI will break down its benefits, health risks, and the lesser-known chemicals rarely mentioned on labels.
-          </p>
-        </div>
+        {/* Hero — only show when no result */}
+        {!result && !loading && !notFound && !error && (
+          <div style={{ marginBottom: 60, animation: "fade-in 0.6s ease forwards" }}>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, letterSpacing: "0.2em", color: "var(--accent)", textTransform: "uppercase", marginBottom: 20 }}>— nutritional intelligence database</div>
+            <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "clamp(2.8rem, 6vw, 5rem)", fontWeight: 900, lineHeight: 1, letterSpacing: "-0.02em", background: "linear-gradient(135deg, #e8e6e1 0%, #666 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              Know what<br />you <span style={{ WebkitTextFillColor: "var(--accent)" }}>consume.</span>
+            </h1>
+            <p style={{ marginTop: 24, fontSize: 16, color: "var(--muted)", lineHeight: 1.7, maxWidth: 520, fontWeight: 300 }}>
+              Type any food, drink, or ingredient. Our AI will break down its benefits, health risks, and the lesser-known chemicals rarely mentioned on labels.
+            </p>
+          </div>
+        )}
 
-        <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14, animation: "fade-in 0.6s 0.1s ease both" }}>
+        {/* Search */}
+        <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14 }}>
           <div className="search-bar" style={{ flex: 1, display: "flex", alignItems: "center", gap: 12, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6, padding: "0 20px", height: 52, transition: "border-color 0.3s, box-shadow 0.3s" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -215,7 +297,7 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".
               style={{ background: "none", border: "none", outline: "none", fontSize: 15, width: "100%", color: "var(--text)", fontFamily: "'DM Sans', sans-serif" }}
             />
             {query && (
-              <button onClick={() => { setQuery(""); setResult(null); setNotFound(false); setError(""); }} style={{ background: "none", border: "none", color: "#444", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: "0 4px" }}>×</button>
+              <button onClick={() => { setQuery(""); setResult(null); setNotFound(false); setError(""); setHistory([]); }} style={{ background: "none", border: "none", color: "#444", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: "0 4px" }}>×</button>
             )}
           </div>
           <button className="analyze-btn" onClick={() => analyzeFood()} disabled={loading || !query.trim()}>
@@ -223,15 +305,24 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".
           </button>
         </div>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 60, animation: "fade-in 0.6s 0.2s ease both" }}>
-          <span style={{ fontSize: 12, color: "#444", fontFamily: "monospace", lineHeight: "30px", marginRight: 4 }}>try:</span>
-          {suggestions.map(s => (
-            <button key={s} className="suggest-chip" onClick={() => handleSuggestion(s)}>{s}</button>
-          ))}
+        {/* Suggestions + back button row */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 60 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: "#444", fontFamily: "monospace", lineHeight: "30px", marginRight: 4 }}>try:</span>
+            {suggestions.map(s => (
+              <button key={s} className="suggest-chip" onClick={() => handleSuggestion(s)}>{s}</button>
+            ))}
+          </div>
+          {history.length > 0 && (
+            <button className="back-btn" onClick={goBack}>
+              ← back to {history[history.length - 1].result?.name || "previous"}
+            </button>
+          )}
         </div>
 
         <div style={{ height: 1, background: "linear-gradient(90deg, transparent, var(--border), transparent)", marginBottom: 40 }} />
 
+        {/* Loading */}
         {loading && (
           <div style={{ textAlign: "center", padding: "70px 0", animation: "fade-in 0.3s ease" }}>
             <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#444", letterSpacing: "0.15em", marginBottom: 20 }}>ANALYZING "{query.toUpperCase()}"</div>
@@ -243,12 +334,14 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".
           </div>
         )}
 
+        {/* Error */}
         {error && !loading && (
           <div style={{ background: "#1a0a0a", border: "1px solid #3a1a1a", borderRadius: 6, padding: "16px 20px", color: "#ff6b6b", fontFamily: "'DM Mono', monospace", fontSize: 13, animation: "fade-in 0.3s ease" }}>
             ⚠ {error}
           </div>
         )}
 
+        {/* Not Found */}
         {notFound && !loading && (
           <div style={{ textAlign: "center", padding: "60px 0", color: "var(--muted)", animation: "fade-in 0.4s ease" }}>
             <div style={{ fontSize: 40, marginBottom: 16 }}>◌</div>
@@ -257,8 +350,9 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".
           </div>
         )}
 
+        {/* Result */}
         {result && !loading && (
-          <div className="result-enter" key={result.name}>
+          <div className="result-enter" key={result.name + history.length}>
 
             {/* Header */}
             <div style={{ display: "flex", alignItems: "flex-start", gap: 24, marginBottom: 32 }}>
@@ -306,6 +400,7 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".
               ))}
             </div>
 
+            {/* Benefits */}
             {activeTab === "benefits" && (
               <div className="stagger" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
                 {result.benefits.map((b, i) => (
@@ -320,6 +415,7 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".
               </div>
             )}
 
+            {/* Risks */}
             {activeTab === "risks" && (
               <div className="stagger" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
                 {result.risks.map((r, i) => (
@@ -334,30 +430,42 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".
               </div>
             )}
 
+            {/* Chemicals — clickable */}
             {activeTab === "chemicals" && !isIngredient && (
               <div className="stagger" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#444", letterSpacing: "0.12em", marginBottom: 4 }}>// lesser-known compounds and contaminants</div>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#444", letterSpacing: "0.12em", marginBottom: 4 }}>
+                  // click any compound to explore it
+                </div>
                 {result.chemicals?.map((c, i) => (
-                  <div key={i} className="card" style={{ borderLeft: `3px solid ${dangerColor[c.danger] || "#555"}` }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
-                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 14, fontWeight: 500 }}>{c.name}</span>
-                      <span className="chem-badge" style={{ background: `${dangerColor[c.danger] || "#555"}18`, color: dangerColor[c.danger] || "#555", border: `1px solid ${dangerColor[c.danger] || "#555"}40` }}>
-                        {dangerLabel[c.danger] || "UNKNOWN"}
-                      </span>
+                  <button key={i} className="clickable-card" style={{ borderLeft: `3px solid ${dangerColor[c.danger] || "#555"}` }} onClick={() => navigateTo(c.name)}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 14, fontWeight: 500 }}>{c.name}</span>
+                        <span className="chem-badge" style={{ background: `${dangerColor[c.danger] || "#555"}18`, color: dangerColor[c.danger] || "#555", border: `1px solid ${dangerColor[c.danger] || "#555"}40` }}>
+                          {dangerLabel[c.danger] || "UNKNOWN"}
+                        </span>
+                      </div>
+                      <span className="nav-arrow">→</span>
                     </div>
-                    <p style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.65 }}>{c.desc}</p>
-                  </div>
+                    <p style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.65, textAlign: "left" }}>{c.desc}</p>
+                    <div style={{ marginTop: 12, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#444", letterSpacing: "0.08em" }}>EXPLORE COMPOUND →</div>
+                  </button>
                 ))}
               </div>
             )}
 
+            {/* Found In — clickable */}
             {activeTab === "found in" && isIngredient && (
               <div className="stagger" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
+                <div style={{ gridColumn: "1 / -1", fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#444", letterSpacing: "0.12em", marginBottom: 4 }}>
+                  // click any food to explore it
+                </div>
                 {result.foundIn?.map((f, i) => (
-                  <div key={i} className="found-in-card">
+                  <button key={i} className="found-in-card" onClick={() => navigateTo(f.name)}>
                     <span style={{ fontSize: 28 }}>{f.emoji}</span>
-                    <span style={{ fontSize: 15 }}>{f.name}</span>
-                  </div>
+                    <span style={{ fontSize: 15, flex: 1 }}>{f.name}</span>
+                    <span className="nav-arrow">→</span>
+                  </button>
                 ))}
               </div>
             )}
@@ -371,6 +479,7 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".
           </div>
         )}
 
+        {/* Empty state */}
         {!result && !notFound && !loading && !error && (
           <div style={{ textAlign: "center", padding: "60px 0" }}>
             <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "5rem", marginBottom: 16, opacity: 0.15 }}>◎</div>
