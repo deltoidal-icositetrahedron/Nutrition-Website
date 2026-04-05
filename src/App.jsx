@@ -452,7 +452,7 @@ export default function App() {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.4, maxOutputTokens: 6000 },
+            generationConfig: { temperature: 0.2, maxOutputTokens: 6000 },
           }),
         }
       );

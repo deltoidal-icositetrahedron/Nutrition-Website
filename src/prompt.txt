@@ -16,12 +16,11 @@ If this is a real food or drink, respond ONLY with a valid JSON object — no ma
     {"title": "Risk name", "desc": "1-2 sentence explanation"},
     {"title": "Risk name", "desc": "1-2 sentence explanation"}
   ],
-  "chemicals": [
-    {"name": "Chemical or ingredient name", "danger": "high / medium / low", "desc": "What it is and why it matters"},
-    {"name": "Chemical or ingredient name", "danger": "high / medium / low", "desc": "What it is and why it matters"},
-    {"name": "Chemical or ingredient name", "danger": "high / medium / low", "desc": "What it is and why it matters"}
-  ],
-  "nutrition": {
+    "chemicals": [
+        {"name": "Chemical or ingredient name", "danger": "high / medium / low", "essentiality": "none / essential / essential_but_overconsumed", "desc": "What it is and why it matters"},
+        {"name": "Chemical or ingredient name", "danger": "high / medium / low", "essentiality": "none / essential / essential_but_overconsumed", "desc": "What it is and why it matters"},
+        {"name": "Chemical or ingredient name", "danger": "high / medium / low", "essentiality": "none / essential / essential_but_overconsumed", "desc": "What it is and why it matters"}
+    ],  "nutrition": {
     "servingSize": "Xg or Xml or X pieces etc",
     "calories": "Xkcal",
     "carbs": "Xg",
