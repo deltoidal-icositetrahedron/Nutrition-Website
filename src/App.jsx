@@ -85,6 +85,7 @@ Extract all data and respond ONLY with this JSON (no markdown, no backticks):
   "productName": "Product name if visible, else 'Unknown Product'",
   "emoji": "relevant emoji",
   "nutrition": {
+    "servingSize": "Xg or Xml or X pieces etc",
     "calories": "Xkcal",
     "totalFat": "Xg",
     "saturatedFat": "Xg",
@@ -301,14 +302,21 @@ function LabelResultPage({ data, onBack, onChemicalClick }) {
         </div>
 
         {activeTab === "nutrition" && (
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:12 }}>
-            {Object.entries(data.nutrition).filter(([,v]) => v && v !== "0g" && v !== "0mg" && v !== "0kcal").map(([k, v]) => (
-              <div key={k} style={{ background:"#141414", border:"1px solid #2a2a2a", borderRadius:6, padding:"16px 20px", textAlign:"center" }}>
+        <div>
+            {data.nutrition.servingSize && (
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#555", letterSpacing:"0.1em", marginBottom:16, padding:"10px 16px", background:"#1a1a1a", border:"1px solid #2a2a2a", borderRadius:6, display:"inline-block" }}>
+                PER SERVING — <span style={{ color:"var(--accent)" }}>{data.nutrition.servingSize}</span>
+            </div>
+            )}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:12 }}>
+            {Object.entries(data.nutrition).filter(([k,v]) => k !== "servingSize" && v && v !== "0g" && v !== "0mg" && v !== "0kcal").map(([k, v]) => (
+                <div key={k} style={{ background:"#141414", border:"1px solid #2a2a2a", borderRadius:6, padding:"16px 20px", textAlign:"center" }}>
                 <div style={{ fontFamily:"'DM Mono',monospace", fontSize:18, color:"var(--accent)", fontWeight:500 }}>{v}</div>
                 <div style={{ fontSize:11, color:"#555", fontFamily:"monospace", textTransform:"uppercase", marginTop:4 }}>{k.replace(/([A-Z])/g, ' $1').trim()}</div>
-              </div>
+                </div>
             ))}
-          </div>
+            </div>
+        </div>
         )}
 
         {activeTab === "ingredients" && (
@@ -434,6 +442,7 @@ If this is a real food or drink, respond ONLY with a valid JSON object — no ma
     {"name": "Chemical or ingredient name", "danger": "high / medium / low", "desc": "What it is and why it matters"}
   ],
   "nutrition": {
+    "servingSize": "Xg or Xml or X pieces etc",
     "calories": "Xkcal",
     "carbs": "Xg",
     "fiber": "Xg",
@@ -769,14 +778,21 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
             </div>
 
             {!isIngredient && result.nutrition && (
-              <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:6, padding:"16px 24px", marginBottom:32, display:"flex", gap:32, flexWrap:"wrap" }}>
-                {Object.entries(result.nutrition).map(([k,v]) => (
-                  <div key={k} style={{ textAlign:"center" }}>
+            <div style={{ background:"var(--surface)", border:"1px solid var(--border)", borderRadius:6, padding:"16px 24px", marginBottom:32 }}>
+                {result.nutrition.servingSize && (
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#555", letterSpacing:"0.1em", marginBottom:14, paddingBottom:12, borderBottom:"1px solid var(--border)" }}>
+                    PER SERVING — <span style={{ color:"var(--accent)" }}>{result.nutrition.servingSize}</span>
+                </div>
+                )}
+                <div style={{ display:"flex", gap:32, flexWrap:"wrap" }}>
+                {Object.entries(result.nutrition).filter(([k]) => k !== "servingSize").map(([k,v]) => (
+                    <div key={k} style={{ textAlign:"center" }}>
                     <div style={{ fontFamily:"'DM Mono',monospace", fontSize:16, color:"var(--accent)", fontWeight:500 }}>{v}</div>
-                    <div style={{ fontSize:11, color:"#555", fontFamily:"monospace", textTransform:"uppercase", marginTop:2 }}>{k}</div>
-                  </div>
+                    <div style={{ fontSize:11, color:"#555", fontFamily:"monospace", textTransform:"uppercase", marginTop:2 }}>{k.replace(/([A-Z])/g, ' $1').trim()}</div>
+                    </div>
                 ))}
-              </div>
+                </div>
+            </div>
             )}
 
             {isIngredient && result.sourcing && (
