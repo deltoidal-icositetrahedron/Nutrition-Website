@@ -473,12 +473,12 @@ If this is a food chemical or ingredient (e.g. citric acid, MSG, aspartame, vita
     {"title": "Risk name", "desc": "1-2 sentence explanation"}
   ],
   "foundIn": [
-    {"name": "Food name", "emoji": "emoji"},
-    {"name": "Food name", "emoji": "emoji"},
-    {"name": "Food name", "emoji": "emoji"},
-    {"name": "Food name", "emoji": "emoji"},
-    {"name": "Food name", "emoji": "emoji"},
-    {"name": "Food name", "emoji": "emoji"}
+    {"name": "Food or source name", "emoji": "emoji", "context": "1 sentence explaining exactly how and under what conditions this ingredient is present — e.g. naturally occurring, only in contaminated sources, added during processing, byproduct of cooking, etc."},
+    {"name": "Food or source name", "emoji": "emoji", "context": "1 sentence explaining exactly how and under what conditions this ingredient is present"},
+    {"name": "Food or source name", "emoji": "emoji", "context": "1 sentence explaining exactly how and under what conditions this ingredient is present"},
+    {"name": "Food or source name", "emoji": "emoji", "context": "1 sentence explaining exactly how and under what conditions this ingredient is present"},
+    {"name": "Food or source name", "emoji": "emoji", "context": "1 sentence explaining exactly how and under what conditions this ingredient is present"},
+    {"name": "Food or source name", "emoji": "emoji", "context": "1 sentence explaining exactly how and under what conditions this ingredient is present"}
   ],
   "sourcing": "2-4 sentence explanation describing how it is grown, processed, or industrially synthesized, with ecological impact and potential contaminants."
 }
@@ -910,11 +910,16 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
               <div className="stagger" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:14 }}>
                 <div style={{ gridColumn:"1 / -1", fontFamily:"'DM Mono',monospace", fontSize:11, color:"#444", letterSpacing:"0.12em", marginBottom:4 }}>// click any food to explore it</div>
                 {result.foundIn?.map((f,i) => (
-                  <button key={i} className="found-in-card" onClick={() => navigateTo(f.name)}>
-                    <span style={{ fontSize:28 }}>{f.emoji}</span>
+                <button key={i} className="found-in-card" onClick={() => navigateTo(f.name)} style={{ flexDirection:"column", alignItems:"flex-start", gap:8 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:14, width:"100%" }}>
+                    <span style={{ fontSize:28, flexShrink:0 }}>{f.emoji}</span>
                     <span className="food-name" style={{ fontSize:15, flex:1 }}>{f.name}</span>
                     <span className="nav-arrow">→</span>
-                  </button>
+                    </div>
+                    {f.context && (
+                    <p style={{ fontSize:12, color:"var(--muted)", lineHeight:1.55, paddingLeft:42, textAlign:"left" }}>{f.context}</p>
+                    )}
+                </button>
                 ))}
               </div>
             )}
