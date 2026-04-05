@@ -16,7 +16,7 @@ const essentialLabel = {
   toxic_in_high_amounts: "TOXIC IN HIGH AMOUNTS",
   essential_but_overconsumed: "ESSENTIAL BUT OVERCONSUMED"
 };
-const suggestions = ["apple", "salmon", "oat milk", "white rice", "dark chocolate"];
+const suggestions = ["apple", "salmon", "oat milk", "white rice", "dark chocolate", "broccoli"];
 
 const GLOBAL_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
@@ -424,7 +424,7 @@ If this is a real food or drink, respond ONLY with a valid JSON object — no ma
   "type": "food",
   "name": "Full food name",
   "emoji": "single relevant emoji",
-  "category": "category e.g. Fruit / Dairy / Grain / Fish / Processed",
+  "category": "category e.g. Fruit / Vegetable / Dairy / Grain / Fish / Meat / Processed / Beverage",
   "summary": "2 sentence overview of this food",
   "benefits": [
     {"title": "Benefit name", "desc": "1-2 sentence explanation"},
