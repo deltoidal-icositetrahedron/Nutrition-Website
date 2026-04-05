@@ -1038,12 +1038,11 @@ If this is a real food or drink, respond ONLY with a valid JSON object — no ma
     {"title": "Risk name", "desc": "1-2 sentence explanation"},
     {"title": "Risk name", "desc": "1-2 sentence explanation"}
   ],
-  "chemicals": [
-    {"name": "Chemical or ingredient name", "danger": "high / medium / low", "desc": "What it is and why it matters"},
-    {"name": "Chemical or ingredient name", "danger": "high / medium / low", "desc": "What it is and why it matters"},
-    {"name": "Chemical or ingredient name", "danger": "high / medium / low", "desc": "What it is and why it matters"}
-  ],
-  "nutrition": {
+    "chemicals": [
+        {"name": "Chemical or ingredient name", "danger": "high / medium / low", "essentiality": "none / essential / essential_but_overconsumed", "desc": "What it is and why it matters"},
+        {"name": "Chemical or ingredient name", "danger": "high / medium / low", "essentiality": "none / essential / essential_but_overconsumed", "desc": "What it is and why it matters"},
+        {"name": "Chemical or ingredient name", "danger": "high / medium / low", "essentiality": "none / essential / essential_but_overconsumed", "desc": "What it is and why it matters"}
+    ],  "nutrition": {
     "servingSize": "Xg or Xml or X pieces etc",
     "calories": "Xkcal",
     "carbs": "Xg",
@@ -1452,12 +1451,18 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
               <div style={{ flex:1 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap", marginBottom:6 }}>
                   <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"var(--accent)", letterSpacing:"0.15em", textTransform:"uppercase" }}>{result.category}</div>
-                  {isIngredient && result.essentiality && (
-                    <span className="chem-badge" style={{ background:`${essentialColor[result.essentiality]||"#555"}18`, color:essentialColor[result.essentiality]||"#555", border:`1px solid ${essentialColor[result.essentiality]||"#555"}40` }}>
-                      {essentialLabel[result.essentiality]||result.essentiality.toUpperCase()}
-                    </span>
-                  )}
-                </div>
+                    {isIngredient && result.essentiality && (
+                    <>
+                        <span className="chem-badge" style={{ background:`${essentialColor[result.essentiality]||"#555"}18`, color:essentialColor[result.essentiality]||"#555", border:`1px solid ${essentialColor[result.essentiality]||"#555"}40` }}>
+                        {essentialLabel[result.essentiality]||result.essentiality.toUpperCase()}
+                        </span>
+                        {(result.essentiality === "essential" || result.essentiality === "essential_but_overconsumed") && (
+                        <span className="chem-badge" style={{ background:`${benefitTag[result.essentiality].color}18`, color:benefitTag[result.essentiality].color, border:`1px solid ${benefitTag[result.essentiality].color}40` }}>
+                            {benefitTag[result.essentiality].label}
+                        </span>
+                        )}
+                    </>
+                    )}                </div>
                 <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:"2.2rem", fontWeight:700, marginBottom:10 }}>{result.name}</h2>
                 <p style={{ color:"var(--muted)", lineHeight:1.7, fontSize:15, maxWidth:600 }}>{result.summary}</p>
               </div>
@@ -1533,9 +1538,13 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
                       <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
                         <span className="chem-name" style={{ fontFamily:"'DM Mono',monospace", fontSize:14, fontWeight:500 }}>{c.name}</span>
                         <span className="chem-badge" style={{ background:`${dangerColor[c.danger]||"#555"}18`, color:dangerColor[c.danger]||"#555", border:`1px solid ${dangerColor[c.danger]||"#555"}40` }}>
-                          {dangerLabel[c.danger]||"UNKNOWN"}
+                        {dangerLabel[c.danger]||"UNKNOWN"}
                         </span>
-                      </div>
+                        {c.danger !== "high" && c.danger !== "medium" && c.essentiality && c.essentiality !== "none" && benefitTag[c.essentiality] && (
+                        <span className="chem-badge" style={{ background:`${benefitTag[c.essentiality].color}18`, color:benefitTag[c.essentiality].color, border:`1px solid ${benefitTag[c.essentiality].color}40` }}>
+                            {benefitTag[c.essentiality].label}
+                        </span>
+                        )}                      </div>
                       <span className="nav-arrow">→</span>
                     </div>
                     <p style={{ color:"var(--muted)", fontSize:13, lineHeight:1.65, textAlign:"left" }}>{c.desc}</p>

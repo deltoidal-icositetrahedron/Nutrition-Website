@@ -1,3 +1,8 @@
+ESSENTIALITY RULES for food chemicals:
+- "essential": naturally occurring beneficial compounds — dietary fiber, polyphenols, antioxidants, vitamins, omega-3s, pectin, quercetin, lycopene, beta-glucan, chlorophyll, curcumin, resveratrol
+- "essential_but_overconsumed": beneficial in normal amounts but harmful in excess — fructose, sodium, caffeine, saturated fat
+- "none": artificial additives, preservatives, synthetic dyes, or compounds with no nutritional benefit
+
 If this is a real food or drink, respond ONLY with a valid JSON object — no markdown, no backticks, no explanation — in this exact format:
 {
   "type": "food",
@@ -16,11 +21,12 @@ If this is a real food or drink, respond ONLY with a valid JSON object — no ma
     {"title": "Risk name", "desc": "1-2 sentence explanation"},
     {"title": "Risk name", "desc": "1-2 sentence explanation"}
   ],
-    "chemicals": [
-        {"name": "Chemical or ingredient name", "danger": "high / medium / low", "essentiality": "none / essential / essential_but_overconsumed", "desc": "What it is and why it matters"},
-        {"name": "Chemical or ingredient name", "danger": "high / medium / low", "essentiality": "none / essential / essential_but_overconsumed", "desc": "What it is and why it matters"},
-        {"name": "Chemical or ingredient name", "danger": "high / medium / low", "essentiality": "none / essential / essential_but_overconsumed", "desc": "What it is and why it matters"}
-    ],  "nutrition": {
+  "chemicals": [
+    {"name": "Chemical or ingredient name", "danger": "high / medium / low", "essentiality": "none / essential / essential_but_overconsumed", "desc": "What it is and why it matters"},
+    {"name": "Chemical or ingredient name", "danger": "high / medium / low", "essentiality": "none / essential / essential_but_overconsumed", "desc": "What it is and why it matters"},
+    {"name": "Chemical or ingredient name", "danger": "high / medium / low", "essentiality": "none / essential / essential_but_overconsumed", "desc": "What it is and why it matters"}
+  ],
+  "nutrition": {
     "servingSize": "Xg or Xml or X pieces etc",
     "calories": "Xkcal",
     "carbs": "Xg",
@@ -51,12 +57,12 @@ If this is a food chemical or ingredient (e.g. citric acid, MSG, aspartame, vita
     {"title": "Risk name", "desc": "1-2 sentence explanation"}
   ],
   "foundIn": [
-    {"name": "Food or source name", "emoji": "emoji", "context": "1 sentence explaining exactly how much and under what conditions this ingredient is present — e.g. some amount mg/kg, naturally occurring, only in contaminated sources, added during processing, byproduct of cooking, etc."},
-    {"name": "Food or source name", "emoji": "emoji", "context": "1 sentence explaining exactly how much and under what conditions this ingredient is present"},
-    {"name": "Food or source name", "emoji": "emoji", "context": "1 sentence explaining exactly how much and under what conditions this ingredient is present"},
-    {"name": "Food or source name", "emoji": "emoji", "context": "1 sentence explaining exactly how much and under what conditions this ingredient is present"},
-    {"name": "Food or source name", "emoji": "emoji", "context": "1 sentence explaining exactly how much and under what conditions this ingredient is present"},
-    {"name": "Food or source name", "emoji": "emoji", "context": "1 sentence explaining exactly how muchand under what conditions this ingredient is present"}
+    {"name": "Food or source name", "emoji": "emoji", "context": "1 precise sentence explaining exactly how this ingredient is present. Be specific about quantities, frequency, and rarity. For toxic or harmful compounds, explicitly state that levels are typically trace amounts measured in parts per billion, clarify how rare unsafe exposure is in everyday consumption, and distinguish between naturally occurring background levels vs. genuinely dangerous contamination. Do not imply something is dangerous simply by listing it — context about safe thresholds matters."},
+    {"name": "Food or source name", "emoji": "emoji", "context": "1 precise sentence explaining exactly how this ingredient is present"},
+    {"name": "Food or source name", "emoji": "emoji", "context": "1 precise sentence explaining exactly how this ingredient is present"},
+    {"name": "Food or source name", "emoji": "emoji", "context": "1 precise sentence explaining exactly how this ingredient is present"},
+    {"name": "Food or source name", "emoji": "emoji", "context": "1 precise sentence explaining exactly how this ingredient is present"},
+    {"name": "Food or source name", "emoji": "emoji", "context": "1 precise sentence explaining exactly how this ingredient is present"}
   ],
   "sourcing": "2-4 sentence explanation describing how it is grown, processed, or industrially synthesized, with ecological impact and potential contaminants."
 }
