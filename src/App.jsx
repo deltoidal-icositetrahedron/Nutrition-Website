@@ -510,7 +510,7 @@ If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.4, maxOutputTokens: 4096 },
+            generationConfig: { temperature: 0.4, maxOutputTokens: 6000 },
           }),
         }
       );
