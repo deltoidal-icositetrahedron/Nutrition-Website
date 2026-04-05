@@ -2,8 +2,20 @@ import { useState, useRef, useEffect } from "react";
 
 const dangerColor = { high: "#ff4d4d", medium: "#ff9800", low: "#ffd600" };
 const dangerLabel = { high: "HIGH RISK", medium: "MODERATE", low: "LOW RISK" };
-const essentialColor = { nonessential: "#888", essential: "#c8f064", toxic: "#ff4d4d", essential_but_overconsumed: "#ff9800" };
-const essentialLabel = { nonessential: "NONESSENTIAL", essential: "ESSENTIAL", toxic: "TOXIC", essential_but_overconsumed: "ESSENTIAL BUT OVERCONSUMED" };
+const essentialColor = {
+  nonessential: "#888",
+  essential: "#c8f064",
+  toxic: "#ff4d4d",
+  toxic_in_high_amounts: "#ff9800",
+  essential_but_overconsumed: "#ff9800"
+};
+const essentialLabel = {
+  nonessential: "NONESSENTIAL",
+  essential: "ESSENTIAL",
+  toxic: "TOXIC",
+  toxic_in_high_amounts: "TOXIC IN HIGH AMOUNTS",
+  essential_but_overconsumed: "ESSENTIAL BUT OVERCONSUMED"
+};
 const suggestions = ["apple", "salmon", "oat milk", "white rice", "dark chocolate"];
 
 const GLOBAL_STYLES = `
@@ -437,8 +449,8 @@ If this is a food chemical or ingredient (e.g. citric acid, MSG, aspartame, vita
   "name": "Full ingredient name",
   "emoji": "single relevant emoji",
   "category": "category e.g. Flavor / Preservative / Texture / Naturally Occurring / Heavy Metal / Vitamin",
-  "essentiality": "nonessential / essential / toxic / essential_but_overconsumed",
-  "summary": "2 sentence overview of this ingredient",
+  "essentiality": "nonessential / essential / toxic / toxic_in_high_amounts / essential_but_overconsumed",
+      "summary": "2 sentence overview of this ingredient",
   "benefits": [
     {"title": "Benefit name", "desc": "1-2 sentence explanation"},
     {"title": "Benefit name", "desc": "1-2 sentence explanation"},
