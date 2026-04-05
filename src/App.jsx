@@ -1,12 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import promptText from './prompt.txt?raw';
 
 const dangerColor = { high: "#ff4d4d", medium: "#ff9800", low: "#ffd600" };
 const dangerLabel = { high: "HIGH RISK", medium: "MODERATE", low: "LOW RISK" };
-const benefitTag = {
-  essential: { label: "BENEFICIAL", color: "#4cff91" },
-  essential_but_overconsumed: { label: "POTENTIALLY BENEFICIAL", color: "#c8f064" },
-};
 const essentialColor = {
   nonessential: "#888",
   essential: "#c8f064",
@@ -22,6 +17,10 @@ const essentialLabel = {
   essential_but_overconsumed: "ESSENTIAL BUT OVERCONSUMED"
 };
 const suggestions = ["apple", "salmon", "oat milk", "white rice", "dark chocolate", "broccoli"];
+const benefitTag = {
+  essential: { label: "BENEFICIAL", color: "#4cff91" },
+  essential_but_overconsumed: { label: "POTENTIALLY BENEFICIAL", color: "#c8f064" },
+};
 
 const GLOBAL_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
@@ -30,6 +29,580 @@ const GLOBAL_STYLES = `
   :root { --bg: #0d0d0d; --surface: #141414; --border: #2a2a2a; --text: #e8e6e1; --muted: #888; --accent: #c8f064; }
   body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
 `;
+
+//AUTH PAGE
+const HEIGHT_OPTIONS = [];
+for (let ft = 4; ft <= 7; ft++) {
+  for (let inch = 0; inch < 12; inch++) {
+    if (ft === 7 && inch > 0) break;
+    HEIGHT_OPTIONS.push({ label: `${ft}'${inch}"`, value: ft * 12 + inch });
+  }
+}
+ 
+export function AuthPage({ onAuth, onBack }) {
+  const [mode, setMode] = useState("login"); // login | registr | verify
+  const [authMethod, setAuthMethod] = useState("email"); // email | phone
+ 
+  // login fields
+  const [loginId, setLoginId] = useState("");   // email or phone
+  const [password, setPassword] = useState("");
+ 
+  // register fields
+  const [username, setUsername] = useState("");
+  const [regId, setRegId] = useState("");       // email or phone
+  const [regPassword, setRegPassword] = useState("");
+  const [heightIn, setHeightIn] = useState(""); // total inches
+  const [weightLbs, setWeightLbs] = useState("");
+ 
+  // OTP verify
+  const [otp, setOtp] = useState("");
+  const [pendingUser, setPendingUser] = useState(null);
+ 
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+ 
+  const resetErrors = () => { setError(""); setInfo(""); };
+ 
+  // ── Validate phone: must start with + and digits
+  const isValidPhone = (v) => /^\+\d{7,15}$/.test(v.trim());
+  const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+ 
+  // ── LOGIN ──────────────────────────────────────────────────────────────
+  const handleLogin = async () => {
+    if (!loginId.trim() || !password.trim()) { setError("Please fill in all fields."); return; }
+    setLoading(true); resetErrors();
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "login", identifier: loginId.trim(), password }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Login failed."); return; }
+      onAuth(data.user);
+    } catch (e) { setError(e.message || "Network error."); }
+    finally { setLoading(false); }
+  };
+ 
+  // ── REGISTER ───────────────────────────────────────────────────────────
+  const handleRegister = async () => {
+    if (!username.trim()) { setError("Username is required."); return; }
+    if (!regId.trim()) { setError(`${authMethod === "email" ? "Email" : "Phone"} is required.`); return; }
+    if (authMethod === "email" && !isValidEmail(regId)) { setError("Please enter a valid email address."); return; }
+    if (authMethod === "phone" && !isValidPhone(regId)) { setError("Please enter a valid phone number (e.g. +12125550100)."); return; }
+    if (!regPassword.trim() || regPassword.length < 6) { setError("Password must be at least 6 characters."); return; }
+    if (!heightIn) { setError("Height is required."); return; }
+    if (!weightLbs || isNaN(parseFloat(weightLbs)) || parseFloat(weightLbs) < 50) { setError("Please enter a valid weight (lbs)."); return; }
+ 
+    setLoading(true); resetErrors();
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "register",
+          username: username.trim(),
+          identifier: regId.trim(),
+          authMethod,
+          password: regPassword,
+          heightIn: parseInt(heightIn),
+          weightLbs: parseFloat(weightLbs),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Registration failed."); return; }
+ 
+      if (data.requiresVerification) {
+        setPendingUser(data.pendingUser);
+        setMode("verify");
+        setInfo(authMethod === "email"
+          ? `A verification code was sent to ${regId.trim()}.`
+          : `A 6-digit code was sent via SMS to ${regId.trim()}.`);
+      } else {
+        onAuth(data.user);
+      }
+    } catch (e) { setError(e.message || "Network error."); }
+    finally { setLoading(false); }
+  };
+ 
+  // ── VERIFY OTP ─────────────────────────────────────────────────────────
+  const handleVerify = async () => {
+    if (otp.trim().length < 6) { setError("Enter the 6-digit code."); return; }
+    setLoading(true); resetErrors();
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "verifyOtp",
+          identifier: regId.trim(),
+          authMethod,
+          token: otp.trim(),
+          pendingUser,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Verification failed."); return; }
+      onAuth(data.user);
+    } catch (e) { setError(e.message || "Network error."); }
+    finally { setLoading(false); }
+  };
+ 
+  // ── RESEND ─────────────────────────────────────────────────────────────
+  const handleResend = async () => {
+    setLoading(true); resetErrors();
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "resendOtp", identifier: regId.trim(), authMethod }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Failed to resend."); return; }
+      setInfo("Code resent! Check your inbox.");
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  };
+ 
+  const switchMode = (m) => { setMode(m); setError(""); setInfo(""); setOtp(""); };
+ 
+  return (
+    <>
+      <style>{`
+        ${GLOBAL_STYLES}
+        @keyframes auth-rise { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .auth-input { background:#1a1a1a; border:1px solid #2a2a2a; border-radius:6px; padding:12px 16px; font-size:14px; color:var(--text); font-family:'DM Sans',sans-serif; width:100%; outline:none; transition:border-color 0.2s,box-shadow 0.2s; }
+        .auth-input:focus { border-color:var(--accent); box-shadow:0 0 0 1px rgba(200,240,100,0.15); }
+        .auth-input.err { border-color:#ff4d4d !important; }
+        .auth-input::placeholder { color:#444; }
+        select.auth-input { appearance:none; -webkit-appearance:none; cursor:pointer; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 14px center; padding-right:36px; }
+        select.auth-input option { background:#1a1a1a; color:var(--text); }
+        .auth-btn { background:var(--accent) !important; color:#0d0d0d !important; padding:13px 28px; border-radius:6px; cursor:pointer; font-family:'DM Mono',monospace; font-size:13px; letter-spacing:0.08em; font-weight:600; transition:all 0.2s; width:100%; display:flex; align-items:center; justify-content:center; gap:8px; }
+        .auth-btn:hover:not(:disabled) { background:#d4f57a !important; transform:translateY(-1px); box-shadow:0 0 24px rgba(200,240,100,0.25); }
+        .auth-btn:disabled { opacity:0.5; cursor:not-allowed; }
+        .auth-spinner { width:15px; height:15px; border:2px solid #0d0d0d; border-top-color:transparent; border-radius:50%; animation:spin 0.7s linear infinite; }
+        .auth-tab { font-family:'DM Mono',monospace; font-size:12px; letter-spacing:0.1em; text-transform:uppercase; cursor:pointer; padding:10px 20px; border-bottom:2px solid transparent; color:#666; transition:all 0.2s; flex:1; }
+        .auth-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+        .auth-tab:hover:not(.active) { color:#aaa; }
+        .auth-label { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; color:#555; text-transform:uppercase; display:block; margin-bottom:7px; }
+        .auth-label .req { color:#ff6060; margin-left:3px; }
+        .method-pill { flex:1; font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; padding:7px 0; border-radius:4px; cursor:pointer; transition:all 0.2s; border:1px solid #2a2a2a; color:#666; }
+        .method-pill.active { background:rgba(200,240,100,0.1) !important; border-color:var(--accent) !important; color:var(--accent) !important; }
+        .method-pill:hover:not(.active) { border-color:#444; color:#aaa; }
+        .otp-box { letter-spacing:0.3em; font-size:20px; font-family:'DM Mono',monospace; text-align:center; }
+        .ghost-link { font-family:'DM Mono',monospace; font-size:11px; color:#555; cursor:pointer; background:none !important; text-decoration:underline; transition:color 0.2s; }
+        .ghost-link:hover { color:var(--accent); }
+        .info-box { background:rgba(200,240,100,0.06); border:1px solid rgba(200,240,100,0.2); border-radius:6px; padding:10px 14px; color:var(--accent); font-family:'DM Mono',monospace; font-size:12px; line-height:1.5; }
+        .err-box { background:#1a0808; border:1px solid #3a1515; border-radius:6px; padding:10px 14px; color:#ff6b6b; font-family:'DM Mono',monospace; font-size:12px; }
+      `}</style>
+ 
+      <div style={{ minHeight:"100vh", background:"var(--bg)", display:"flex", alignItems:"center", justifyContent:"center", padding:"32px" }}>
+        <div style={{ width:"100%", maxWidth:440, animation:"auth-rise 0.5s ease forwards" }}>
+ 
+          {/* Logo */}
+          <div style={{ textAlign:"center", marginBottom:36 }}>
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, letterSpacing:"0.2em", color:"var(--accent)", textTransform:"uppercase", marginBottom:10 }}>— nutritional intelligence</div>
+            <h1 style={{ fontFamily:"'Playfair Display',serif", fontSize:"2.8rem", fontWeight:900, background:"linear-gradient(135deg,#e8e6e1 0%,#666 100%)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>Nutrifax</h1>
+          </div>
+ 
+          <div style={{ background:"#141414", border:"1px solid #2a2a2a", borderRadius:10, overflow:"hidden" }}>
+ 
+            {/* ── VERIFY OTP PAGE ── */}
+            {mode === "verify" && (
+              <div style={{ padding:"32px" }}>
+                <div style={{ textAlign:"center", marginBottom:24 }}>
+                  <div style={{ fontSize:36, marginBottom:12 }}>{authMethod === "email" ? "📧" : "📱"}</div>
+                  <div style={{ fontFamily:"'DM Mono',monospace", fontSize:13, color:"var(--text)", marginBottom:6 }}>Verify your {authMethod}</div>
+                  <div style={{ fontSize:12, color:"#666", lineHeight:1.6 }}>Enter the 6-digit code we sent to<br /><span style={{ color:"var(--accent)" }}>{authMethod === "email" ? regId : regId}</span></div>
+                </div>
+                {info && <div className="info-box" style={{ marginBottom:14 }}>ℹ {info}</div>}
+                {error && <div className="err-box" style={{ marginBottom:14 }}>⚠ {error}</div>}
+                <div style={{ marginBottom:16 }}>
+                  <label className="auth-label">Verification Code</label>
+                  <input className="auth-input otp-box" maxLength={6} placeholder="000000" value={otp}
+                    onChange={e => { setOtp(e.target.value.replace(/\D/g,"")); resetErrors(); }}
+                    onKeyDown={e => e.key === "Enter" && handleVerify()} autoFocus />
+                </div>
+                <button className="auth-btn" onClick={handleVerify} disabled={loading || otp.length < 6}>
+                  {loading ? <span className="auth-spinner" /> : "VERIFY & CONTINUE →"}
+                </button>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:16 }}>
+                  <button className="ghost-link" onClick={handleResend} disabled={loading}>Resend code</button>
+                  <button className="ghost-link" onClick={() => switchMode("register")}>← Back</button>
+                </div>
+              </div>
+            )}
+ 
+            {/* ── LOGIN / REGISTER TABS ── */}
+            {mode !== "verify" && (
+              <>
+                <div style={{ display:"flex", borderBottom:"1px solid #2a2a2a" }}>
+                  <button className={`auth-tab ${mode==="login"?"active":""}`} onClick={() => switchMode("login")}>Sign In</button>
+                  <button className={`auth-tab ${mode==="register"?"active":""}`} onClick={() => switchMode("register")}>Register</button>
+                </div>
+ 
+                <div style={{ padding:"28px 32px 32px" }}>
+                  <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+ 
+                    {/* ── AUTH METHOD TOGGLE (register only) ── */}
+                    {mode === "register" && (
+                      <div>
+                        <label className="auth-label">Verify with</label>
+                        <div style={{ display:"flex", gap:8 }}>
+                          <button className={`method-pill ${authMethod==="email"?"active":""}`} onClick={() => { setAuthMethod("email"); resetErrors(); }}>✉ Email</button>
+                          <button className={`method-pill ${authMethod==="phone"?"active":""}`} onClick={() => { setAuthMethod("phone"); resetErrors(); }}>📱 Phone</button>
+                        </div>
+                      </div>
+                    )}
+ 
+                    {/* ── EMAIL / PHONE (login) ── */}
+                    {mode === "login" && (
+                      <div>
+                        <label className="auth-label">Email or Phone<span className="req">*</span></label>
+                        <input className="auth-input" type="text" placeholder="you@email.com or +12125550100"
+                          value={loginId} onChange={e => { setLoginId(e.target.value); resetErrors(); }}
+                          onKeyDown={e => e.key === "Enter" && handleLogin()} autoComplete="username" />
+                      </div>
+                    )}
+ 
+                    {/* ── USERNAME (register only) ── */}
+                    {mode === "register" && (
+                      <div>
+                        <label className="auth-label">Username<span className="req">*</span></label>
+                        <input className="auth-input" type="text" placeholder="yourname"
+                          value={username} onChange={e => { setUsername(e.target.value); resetErrors(); }}
+                          autoComplete="username" />
+                      </div>
+                    )}
+ 
+                    {/* ── EMAIL or PHONE (register) ── */}
+                    {mode === "register" && (
+                      <div>
+                        <label className="auth-label">
+                          {authMethod === "email" ? "Email Address" : "Phone Number"}<span className="req">*</span>
+                        </label>
+                        <input className="auth-input"
+                          type={authMethod === "email" ? "email" : "tel"}
+                          placeholder={authMethod === "email" ? "you@email.com" : "+12125550100"}
+                          value={regId} onChange={e => { setRegId(e.target.value); resetErrors(); }} />
+                        {authMethod === "phone" && (
+                          <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:"#444", marginTop:5 }}>Include country code, e.g. +1 for US</div>
+                        )}
+                      </div>
+                    )}
+ 
+                    {/* ── PASSWORD (login) ── */}
+                    {mode === "login" && (
+                      <div>
+                        <label className="auth-label">Password<span className="req">*</span></label>
+                        <input className="auth-input" type="password" placeholder="••••••••"
+                          value={password}
+                          onChange={e => { setPassword(e.target.value); resetErrors(); }}
+                          onKeyDown={e => e.key === "Enter" && handleLogin()}
+                          autoComplete="current-password" />
+                      </div>
+                    )}
+ 
+                    {/* ── PASSWORD (register) ── */}
+                    {mode === "register" && (
+                      <div>
+                        <label className="auth-label">Password<span className="req">*</span></label>
+                        <input className="auth-input" type="password" placeholder="••••••••"
+                          value={regPassword}
+                          onChange={e => { setRegPassword(e.target.value); resetErrors(); }}
+                          onKeyDown={e => e.key === "Enter" && handleRegister()}
+                          autoComplete="new-password" />
+                        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:"#444", marginTop:5 }}>Minimum 6 characters</div>
+                      </div>
+                    )}
+ 
+                    {/* ── HEIGHT + WEIGHT (register, REQUIRED, imperial) ── */}
+                    {mode === "register" && (
+                      <>
+                        <div style={{ height:1, background:"#222" }} />
+                        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:"#444", letterSpacing:"0.1em" }}>
+                          // body stats — required for personalized insights
+                        </div>
+                        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+                          <div>
+                            <label className="auth-label">Height<span className="req">*</span></label>
+                            <select className="auth-input" value={heightIn}
+                              onChange={e => { setHeightIn(e.target.value); resetErrors(); }}>
+                              <option value="">Select height</option>
+                              {HEIGHT_OPTIONS.map(h => (
+                                <option key={h.value} value={h.value}>{h.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="auth-label">Weight (lbs)<span className="req">*</span></label>
+                            <input className={`auth-input${!weightLbs && error.includes("weight") ? " err" : ""}`}
+                              type="number" placeholder="150" step="0.5" min="50" max="800"
+                              value={weightLbs} onChange={e => { setWeightLbs(e.target.value); resetErrors(); }} />
+                          </div>
+                        </div>
+                      </>
+                    )}
+ 
+                    {/* ── MESSAGES ── */}
+                    {error && <div className="err-box">⚠ {error}</div>}
+                    {info && <div className="info-box">ℹ {info}</div>}
+ 
+                    {/* ── SUBMIT ── */}
+                    <button className="auth-btn"
+                      onClick={mode === "login" ? handleLogin : handleRegister}
+                      disabled={loading ||
+                        (mode === "login" && (!loginId.trim() || !(password).trim())) ||
+                        (mode === "register" && (!username.trim() || !regId.trim() || !regPassword.trim() || !heightIn || !weightLbs))
+                      }>
+                      {loading
+                        ? <span className="auth-spinner" />
+                        : mode === "login"
+                          ? "SIGN IN →"
+                          : `CREATE ACCOUNT & VERIFY →`}
+                    </button>
+ 
+                    {mode === "register" && (
+                      <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:"#444", textAlign:"center", lineHeight:1.6 }}>
+                        A verification code will be sent to your {authMethod}.<br />
+                        <span style={{ color:"var(--accent)" }}>*</span> All fields marked with * are required.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+ 
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:24 }}>
+        <button
+            onClick={onBack}
+            style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#555", cursor:"pointer", display:"flex", alignItems:"center", gap:6, transition:"color 0.2s" }}
+            onMouseEnter={e => e.currentTarget.style.color="var(--accent)"}
+            onMouseLeave={e => e.currentTarget.style.color="#555"}
+        >← Back</button>
+        <p style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#333" }}>
+            AI-powered food intelligence database
+        </p>
+        </div>        </div>
+      </div>
+    </>
+  );
+}
+
+function ProfilePage({ user, onUpdate, onLogout, onBack, onFoodClick }) {
+  const [editMode, setEditMode]   = useState(false);
+  const [heightIn, setHeightIn]   = useState(user.height_in || "");
+  const [weightLbs, setWeightLbs] = useState(user.weight_lbs || "");
+  const [saving, setSaving]       = useState(false);
+  const [error, setError]         = useState("");
+  const [removingIdx, setRemovingIdx] = useState(null);
+ 
+  // BMI — convert imperial to metric for calc
+  const bmi = user.height_in && user.weight_lbs
+    ? ((user.weight_lbs / 2.205) / ((user.height_in * 0.0254) ** 2)).toFixed(1)
+    : null;
+  const bmiLabel = bmi ? (bmi < 18.5 ? "Underweight" : bmi < 25 ? "Normal" : bmi < 30 ? "Overweight" : "Obese") : null;
+  const bmiColor = bmi ? (bmi < 18.5 ? "#ff9800" : bmi < 25 ? "#c8f064" : bmi < 30 ? "#ff9800" : "#ff4d4d") : null;
+ 
+  // Convert total inches to ft/in display
+  const fmtHeight = (inches) => inches ? `${Math.floor(inches/12)}'${inches%12}"` : "—";
+ 
+  const saveProfile = async () => {
+    setSaving(true); setError("");
+    try {
+      // NOTE: uses /api/users (users.js) not /api/user
+      const res  = await fetch("/api/users", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({ action:"updateProfile", userId:user.id, heightIn: heightIn ? parseInt(heightIn) : null, weightLbs: weightLbs ? parseFloat(weightLbs) : null }) });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error); return; }
+      onUpdate(data.user);
+      setEditMode(false);
+    } catch(e) { setError(e.message); }
+    finally { setSaving(false); }
+  };
+ 
+  const removeEntry = async (index) => {
+    setRemovingIdx(index);
+    try {
+      // NOTE: uses /api/users (users.js) not /api/user
+      const res  = await fetch("/api/users", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({ action:"removeEntry", userId:user.id, index }) });
+      const data = await res.json();
+      if (data.ok) onUpdate(data.user);
+    } catch(_) {}
+    finally { setRemovingIdx(null); }
+  };
+ 
+  return (
+    <>
+      <style>{`
+        ${GLOBAL_STYLES}
+        @keyframes prof-rise { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .prof-input { background:#1a1a1a; border:1px solid #2a2a2a; border-radius:6px; padding:10px 14px; font-size:14px; color:var(--text); font-family:'DM Sans',sans-serif; width:100%; outline:none; transition:border-color 0.2s; }
+        .prof-input:focus { border-color:var(--accent); }
+        .prof-label { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; color:#555; text-transform:uppercase; display:block; margin-bottom:6px; }
+        .prof-btn { background:var(--accent) !important; color:#0d0d0d !important; padding:9px 20px; border-radius:4px; cursor:pointer; font-family:'DM Mono',monospace; font-size:12px; letter-spacing:0.08em; font-weight:600; transition:all 0.2s; display:flex; align-items:center; gap:6px; }
+        .prof-btn:hover:not(:disabled) { background:#d4f57a !important; }
+        .prof-btn:disabled { opacity:0.5; cursor:not-allowed; }
+        .ghost-btn { border:1px solid #2a2a2a !important; border-radius:4px; color:#888 !important; font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.1em; padding:8px 16px; cursor:pointer; transition:all 0.2s; }
+        .ghost-btn:hover { border-color:var(--accent) !important; color:var(--accent) !important; }
+        .entry-row { background:#141414; border:1px solid #2a2a2a; border-radius:6px; padding:14px 18px; display:flex; align-items:center; gap:14px; transition:border-color 0.2s; }
+        .entry-row:hover { border-color:#3a3a3a; }
+        .entry-click { flex:1; text-align:left; cursor:pointer; background:none !important; border:none !important; color:var(--text) !important; }
+        .entry-click:hover .entry-name { color:var(--accent) !important; }
+        .remove-entry-btn { color:#444 !important; cursor:pointer; font-size:18px; line-height:1; padding:0 4px; transition:color 0.2s; flex-shrink:0; }
+        .remove-entry-btn:hover { color:#ff4d4d !important; }
+        .prof-spinner { width:13px; height:13px; border:2px solid #0d0d0d; border-top-color:transparent; border-radius:50%; animation:spin 0.7s linear infinite; }
+        select.prof-input { appearance:none; -webkit-appearance:none; cursor:pointer; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; padding-right:32px; }
+        select.prof-input option { background:#1a1a1a; color:var(--text); }
+      `}</style>
+ 
+      <div style={{ maxWidth:860, margin:"0 auto", padding:"60px 32px", animation:"prof-rise 0.5s ease forwards" }}>
+        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:40, flexWrap:"wrap", gap:16 }}>
+          <div>
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, letterSpacing:"0.2em", color:"var(--accent)", textTransform:"uppercase", marginBottom:10 }}>— your profile</div>
+            <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:"2rem", fontWeight:700 }}>@{user.username}</h2>
+          </div>
+          <div style={{ display:"flex", gap:10 }}>
+            <button className="ghost-btn" onClick={onBack}>← Back</button>
+            <button className="ghost-btn" onClick={onLogout}
+              onMouseEnter={e => { e.currentTarget.style.borderColor="#ff4d4d"; e.currentTarget.style.color="#ff4d4d"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor="#2a2a2a"; e.currentTarget.style.color="#888"; }}>
+              Sign Out
+            </button>
+          </div>
+        </div>
+ 
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, marginBottom:32 }}>
+          {/* Body stats */}
+          <div style={{ background:"#141414", border:"1px solid #2a2a2a", borderRadius:8, padding:"22px 24px" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:"#555", letterSpacing:"0.12em", textTransform:"uppercase" }}>// body stats</div>
+              {!editMode && <button className="ghost-btn" style={{ fontSize:"10px", padding:"5px 12px" }} onClick={() => setEditMode(true)}>EDIT</button>}
+            </div>
+            {editMode ? (
+              <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                  <div>
+                    <label className="prof-label">Height</label>
+                    <select className="prof-input" value={heightIn} onChange={e => setHeightIn(e.target.value)}>
+                      <option value="">Select</option>
+                      {HEIGHT_OPTIONS.map(h => <option key={h.value} value={h.value}>{h.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="prof-label">Weight (lbs)</label>
+                    <input className="prof-input" type="number" step="0.5" value={weightLbs}
+                      onChange={e => setWeightLbs(e.target.value)} placeholder="150" />
+                  </div>
+                </div>
+                {error && <div style={{ color:"#ff6b6b", fontSize:12, fontFamily:"'DM Mono',monospace" }}>⚠ {error}</div>}
+                <div style={{ display:"flex", gap:8 }}>
+                  <button className="prof-btn" onClick={saveProfile} disabled={saving}>
+                    {saving ? <span className="prof-spinner" /> : "SAVE"}
+                  </button>
+                  <button className="ghost-btn" onClick={() => { setEditMode(false); setHeightIn(user.height_in||""); setWeightLbs(user.weight_lbs||""); setError(""); }}>CANCEL</button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                  <div style={{ textAlign:"center", background:"#1a1a1a", borderRadius:6, padding:"14px 10px" }}>
+                    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:20, color:"var(--accent)", fontWeight:500 }}>{fmtHeight(user.height_in)}</div>
+                    <div style={{ fontSize:11, color:"#555", fontFamily:"monospace", textTransform:"uppercase", marginTop:4 }}>height</div>
+                  </div>
+                  <div style={{ textAlign:"center", background:"#1a1a1a", borderRadius:6, padding:"14px 10px" }}>
+                    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:20, color:"var(--accent)", fontWeight:500 }}>{user.weight_lbs ? `${user.weight_lbs} lbs` : "—"}</div>
+                    <div style={{ fontSize:11, color:"#555", fontFamily:"monospace", textTransform:"uppercase", marginTop:4 }}>weight</div>
+                  </div>
+                </div>
+                {bmi && (
+                  <div style={{ textAlign:"center", background:"#1a1a1a", borderRadius:6, padding:"14px" }}>
+                    <div style={{ fontFamily:"'DM Mono',monospace", fontSize:26, color:bmiColor, fontWeight:500 }}>{bmi}</div>
+                    <div style={{ fontSize:11, color:"#555", fontFamily:"monospace", textTransform:"uppercase", marginTop:4 }}>BMI — <span style={{ color:bmiColor }}>{bmiLabel}</span></div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+ 
+          {/* Account summary */}
+          <div style={{ background:"#141414", border:"1px solid #2a2a2a", borderRadius:8, padding:"22px 24px" }}>
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:"#555", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:20 }}>// account summary</div>
+            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+              {[["Username", `@${user.username}`], ["Tracked foods", user.entries?.length || 0], ["Account ID", `#${user.id?.slice(0,8)}…`]].map(([label, val], i) => (
+                <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", paddingBottom: i < 2 ? 12 : 0, borderBottom: i < 2 ? "1px solid #1e1e1e" : "none" }}>
+                  <span style={{ fontSize:13, color:"#666" }}>{label}</span>
+                  <span style={{ fontFamily:"'DM Mono',monospace", fontSize: i===2 ? 11 : 13, color: i===1 ? "var(--accent)" : i===2 ? "#444" : "var(--text)" }}>{val}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+ 
+        {/* Food journal */}
+        <div style={{ background:"#141414", border:"1px solid #2a2a2a", borderRadius:8, padding:"22px 24px" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
+            <div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:"#555", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:4 }}>// food journal</div>
+              <div style={{ fontSize:13, color:"#666" }}>Foods you've explored — click to revisit</div>
+            </div>
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"var(--accent)" }}>{user.entries?.length || 0} entries</div>
+          </div>
+          {!user.entries?.length ? (
+            <div style={{ textAlign:"center", padding:"40px 0", color:"#444", fontFamily:"'DM Mono',monospace", fontSize:12 }}>No entries yet — search for a food to get started.</div>
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              {[...(user.entries||[])].reverse().map((entry, i) => {
+                const realIdx = (user.entries.length - 1) - i;
+                const parsed = (() => { try { return JSON.parse(entry); } catch { return null; } })();
+                return (
+                  <div key={i} className="entry-row">
+                    <button className="entry-click" onClick={() => onFoodClick(parsed?.name || entry)}>
+                      <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                        {parsed?.emoji && <span style={{ fontSize:22 }}>{parsed.emoji}</span>}
+                        <div>
+                          <div className="entry-name" style={{ fontSize:14, fontWeight:500, color:"var(--text)", transition:"color 0.2s" }}>{parsed?.name || entry}</div>
+                          {parsed?.category && <div style={{ fontSize:11, color:"#555", fontFamily:"'DM Mono',monospace", marginTop:2 }}>{parsed.category}</div>}
+                        </div>
+                      </div>
+                    </button>
+                    <button className="remove-entry-btn" onClick={() => removeEntry(realIdx)} disabled={removingIdx === realIdx}>
+                      {removingIdx === realIdx ? "…" : "×"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+ 
+// ─── NavUserButton ──────────────────────────────────────────────────────────
+function NavUserButton({ authUser, onProfile, onSignIn }) {
+  if (authUser) {
+return (
+    <button onClick={onSignIn}
+      style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"var(--accent)", cursor:"pointer", border:"1px solid rgba(200,240,100,0.3)", borderRadius:4, padding:"5px 14px", transition:"all 0.2s", flexShrink:0, whiteSpace:"nowrap", marginLeft:"auto" }}        onMouseLeave={e => { e.currentTarget.style.color="#888";          e.currentTarget.style.borderColor="#2a2a2a"; }}>
+        @{authUser.username}
+      </button>
+    );
+  }
+  return (
+    <button onClick={onSignIn}
+      style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"var(--accent)", cursor:"pointer", border:"1px solid rgba(200,240,100,0.3)", borderRadius:4, padding:"5px 14px", transition:"all 0.2s", flexShrink:0, whiteSpace:"nowrap" }}
+      onMouseEnter={e => e.currentTarget.style.background="rgba(200,240,100,0.06)"}
+      onMouseLeave={e => e.currentTarget.style.background="none"}>
+      SIGN IN
+    </button>
+  );
+}
+
 
 // ─── Image Analysis Page ───────────────────────────────────────────────────
 function ImagePage({ onBack, onResult }) {
@@ -408,6 +981,29 @@ export default function App() {
   const [camTooltip, setCamTooltip] = useState(false);
   const inputRef = useRef(null);
 
+  // ── Auth state ──────────────────────────────────────────────────────────
+  const [authUser, setAuthUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("nutrifax_user") || "null"); } catch { return null; }
+  });
+
+  const handleAuth = (user) => {
+    setAuthUser(user);
+    try { localStorage.setItem("nutrifax_user", JSON.stringify(user)); } catch (_) {}
+    setPage("main");
+  };
+
+  const handleLogout = () => {
+    setAuthUser(null);
+    try { localStorage.removeItem("nutrifax_user"); } catch (_) {}
+    setPage("main");
+  };
+
+  const handleUserUpdate = (updatedUser) => {
+    setAuthUser(updatedUser);
+    try { localStorage.setItem("nutrifax_user", JSON.stringify(updatedUser)); } catch (_) {}
+  };
+  // ───────────────────────────────────────────────────────────────────────
+
   const analyzeFood = async (overrideQuery, pushHistory = false) => {
     const q = (overrideQuery ?? query).trim();
     if (!q) return;
@@ -422,10 +1018,73 @@ export default function App() {
     setError("");
     setPage("main");
 
-    const fileContent = promptText;
-    const prompt = `Analyze the input: "${q}".\n\n${promptText}`;
+    const prompt = `Analyze the input: "${q}".
 
-    ;
+If this is a real food or drink, respond ONLY with a valid JSON object — no markdown, no backticks, no explanation — in this exact format:
+{
+  "type": "food",
+  "name": "Full food name",
+  "emoji": "single relevant emoji",
+  "category": "category e.g. Fruit / Vegetable / Dairy / Grain / Fish / Meat / Processed / Beverage",
+  "summary": "2 sentence overview of this food",
+  "benefits": [
+    {"title": "Benefit name", "desc": "1-2 sentence explanation"},
+    {"title": "Benefit name", "desc": "1-2 sentence explanation"},
+    {"title": "Benefit name", "desc": "1-2 sentence explanation"},
+    {"title": "Benefit name", "desc": "1-2 sentence explanation"}
+  ],
+  "risks": [
+    {"title": "Risk name", "desc": "1-2 sentence explanation"},
+    {"title": "Risk name", "desc": "1-2 sentence explanation"},
+    {"title": "Risk name", "desc": "1-2 sentence explanation"}
+  ],
+  "chemicals": [
+    {"name": "Chemical or ingredient name", "danger": "high / medium / low", "desc": "What it is and why it matters"},
+    {"name": "Chemical or ingredient name", "danger": "high / medium / low", "desc": "What it is and why it matters"},
+    {"name": "Chemical or ingredient name", "danger": "high / medium / low", "desc": "What it is and why it matters"}
+  ],
+  "nutrition": {
+    "servingSize": "Xg or Xml or X pieces etc",
+    "calories": "Xkcal",
+    "carbs": "Xg",
+    "fiber": "Xg",
+    "sugar": "Xg",
+    "protein": "Xg",
+    "fat": "Xg"
+  }
+}
+
+If this is a food chemical or ingredient (e.g. citric acid, MSG, aspartame, vitamin C, lead acetate), respond ONLY with a valid JSON object — no markdown, no backticks, no explanation — in this exact format:
+{
+  "type": "ingredient",
+  "name": "Full ingredient name",
+  "emoji": "single relevant emoji",
+  "category": "category e.g. Flavor / Preservative / Texture / Naturally Occurring / Heavy Metal / Vitamin",
+  "essentiality": "nonessential / essential / toxic / toxic_in_high_amounts / essential_but_overconsumed",
+  "summary": "2 sentence overview of this ingredient",
+  "benefits": [
+    {"title": "Benefit name", "desc": "1-2 sentence explanation"},
+    {"title": "Benefit name", "desc": "1-2 sentence explanation"},
+    {"title": "Benefit name", "desc": "1-2 sentence explanation"},
+    {"title": "Benefit name", "desc": "1-2 sentence explanation"}
+  ],
+  "risks": [
+    {"title": "Risk name", "desc": "1-2 sentence explanation"},
+    {"title": "Risk name", "desc": "1-2 sentence explanation"},
+    {"title": "Risk name", "desc": "1-2 sentence explanation"}
+  ],
+  "foundIn": [
+    {"name": "Food name", "emoji": "emoji"},
+    {"name": "Food name", "emoji": "emoji"},
+    {"name": "Food name", "emoji": "emoji"},
+    {"name": "Food name", "emoji": "emoji"},
+    {"name": "Food name", "emoji": "emoji"},
+    {"name": "Food name", "emoji": "emoji"}
+  ],
+  "sourcing": "2-4 sentence explanation describing how it is grown, processed, or industrially synthesized, with ecological impact and potential contaminants."
+}
+
+If the input satisfies none of the above, ONLY reply with "NOT_FOOD".`;
 
     try {
       // 1. Check MongoDB cache first (skipped silently if running locally without Vercel CLI)
@@ -452,7 +1111,7 @@ export default function App() {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.2, maxOutputTokens: 6000 },
+            generationConfig: { temperature: 0.4, maxOutputTokens: 4096 },
           }),
         }
       );
@@ -541,6 +1200,33 @@ export default function App() {
   const isIngredient = result?.type === "ingredient";
   const tabs = isIngredient ? ["benefits", "risks", "found in"] : ["benefits", "risks", "chemicals"];
 
+  // ── Auth page ──
+  if (page === "auth") {
+    return <AuthPage onAuth={handleAuth} onBack={goToMain} />;
+  }
+
+  // ── Profile page ──
+  if (page === "profile") {
+    if (!authUser) { setPage("auth"); return null; }
+    return (
+      <div style={{ background:"#0d0d0d", minHeight:"100vh", color:"#e8e6e1" }}>
+        <nav style={{ position:"sticky", top:0, zIndex:100, background:"rgba(13,13,13,0.92)", backdropFilter:"blur(12px)", borderBottom:"1px solid #2a2a2a", padding:"14px 40px", display:"flex", alignItems:"center", gap:16 }}>
+          <span onClick={goToMain} style={{ fontFamily:"'DM Mono',monospace", fontSize:13, letterSpacing:"0.15em", color:"#c8f064", textTransform:"uppercase", cursor:"pointer" }}>Nutrifax</span>
+          <span style={{ color:"#333", fontSize:12 }}>//</span>
+          <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#444" }}>profile</span>
+          <NavUserButton authUser={authUser} onProfile={() => setPage("profile")} onSignIn={() => setPage("auth")} />
+        </nav>
+        <ProfilePage
+          user={authUser}
+          onUpdate={handleUserUpdate}
+          onLogout={handleLogout}
+          onBack={goToMain}
+          onFoodClick={(name) => { goToMain(); analyzeFood(name, false); }}
+        />
+      </div>
+    );
+  }
+
   // ── Image page ──
   if (page === "image") {
     return (
@@ -549,6 +1235,7 @@ export default function App() {
           <span onClick={goToMain} style={{ fontFamily:"'DM Mono',monospace", fontSize:13, letterSpacing:"0.15em", color:"#c8f064", textTransform:"uppercase", cursor:"pointer" }}>Nutrifax</span>
           <span style={{ color:"#333", fontSize:12 }}>//</span>
           <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#444" }}>image analysis</span>
+          <NavUserButton authUser={authUser} onProfile={() => setPage("profile")} onSignIn={() => setPage("auth")} />
         </nav>
         <ImagePage onBack={() => { setCamTooltip(false); setPage("main"); }} onResult={handleImageResult} />
       </div>
@@ -563,6 +1250,7 @@ export default function App() {
           <span onClick={goToMain} style={{ fontFamily:"'DM Mono',monospace", fontSize:13, letterSpacing:"0.15em", color:"#c8f064", textTransform:"uppercase", cursor:"pointer" }}>Nutrifax</span>
           <span style={{ color:"#333", fontSize:12 }}>//</span>
           <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#444" }}>label result</span>
+          <NavUserButton authUser={authUser} onProfile={() => setPage("profile")} onSignIn={() => setPage("auth")} />
         </nav>
         <LabelResultPage
           data={labelData}
@@ -638,25 +1326,34 @@ export default function App() {
 
       <div className="scan-line" />
 
-      <nav style={{ position:"sticky", top:0, zIndex:100, background:"rgba(13,13,13,0.92)", backdropFilter:"blur(12px)", borderBottom:"1px solid var(--border)", padding:"14px 40px", display:"flex", alignItems:"center", gap:16 }}>
-        <span onClick={goToMain} style={{ fontFamily:"'DM Mono',monospace", fontSize:13, letterSpacing:"0.15em", color:"var(--accent)", textTransform:"uppercase", cursor:"pointer" }}>Nutrifax</span>
-        <span style={{ color:"#333", fontSize:12 }}>//</span>
-        {history.length > 0 ? (
-          <>
-            {history.map((h, i) => (
-              <span key={i} style={{ display:"flex", alignItems:"center" }}>
-                <span className="breadcrumb-item" style={{ cursor:"pointer", transition:"color 0.2s" }}
-                  onClick={() => { const prev = history[i]; setHistory(hh => hh.slice(0,i)); setQuery(prev.query); setResult(prev.result); setActiveTab(prev.activeTab); setNotFound(false); setError(""); window.scrollTo({top:0,behavior:"smooth"}); }}
-                  onMouseEnter={e => e.target.style.color="var(--accent)"} onMouseLeave={e => e.target.style.color="#444"}
-                >{h.isImageResult ? "Image Result" : h.result?.name || h.query}</span>
-                <span className="breadcrumb-sep">›</span>
-              </span>
-            ))}
-            <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"var(--muted)" }}>{result?.name || query}</span>
-          </>
-        ) : (
-          <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#444", letterSpacing:"0.1em" }}>AI-powered food intelligence</span>
-        )}
+      <nav style={{ position:"sticky", top:0, zIndex:100, background:"rgba(13,13,13,0.92)", backdropFilter:"blur(12px)", borderBottom:"1px solid var(--border)", padding:"14px 40px", display:"flex", alignItems:"center", gap:12 }}>
+        <span onClick={goToMain} style={{ fontFamily:"'DM Mono',monospace", fontSize:13, letterSpacing:"0.15em", color:"var(--accent)", textTransform:"uppercase", cursor:"pointer", flexShrink:0 }}>Nutrifax</span>
+        <span style={{ color:"#333", fontSize:12, flexShrink:0 }}>//</span>
+        {/* Breadcrumb — takes remaining space, truncates gracefully */}
+        <div style={{ flex:1, minWidth:0, overflow:"hidden", display:"flex", alignItems:"center" }}>
+          {history.length > 0 ? (
+            <div style={{ display:"flex", alignItems:"center", minWidth:0 }}>
+              {history.map((h, i) => (
+                <span key={i} style={{ display:"flex", alignItems:"center", flexShrink:0 }}>
+                  <span className="breadcrumb-item" style={{ cursor:"pointer", transition:"color 0.2s" }}
+                    onClick={() => { const prev = history[i]; setHistory(hh => hh.slice(0,i)); setQuery(prev.query); setResult(prev.result); setActiveTab(prev.activeTab); setNotFound(false); setError(""); window.scrollTo({top:0,behavior:"smooth"}); }}
+                    onMouseEnter={e => e.target.style.color="var(--accent)"} onMouseLeave={e => e.target.style.color="#444"}
+                  >{h.isImageResult ? "Image Result" : h.result?.name || h.query}</span>
+                  <span className="breadcrumb-sep">›</span>
+                </span>
+              ))}
+              <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"var(--muted)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{result?.name || query}</span>
+            </div>
+          ) : (
+            <span style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"#444", letterSpacing:"0.1em", whiteSpace:"nowrap" }}>AI-powered food intelligence</span>
+          )}
+        </div>
+        {/* ── Profile / Sign In button — always visible, never inside the flex:1 div ── */}
+        <NavUserButton
+          authUser={authUser}
+          onProfile={() => setPage("profile")}
+          onSignIn={() => setPage("auth")}
+        />
       </nav>
 
       <div style={{ maxWidth:900, margin:"0 auto", padding:"80px 32px 60px" }}>
@@ -755,18 +1452,11 @@ export default function App() {
               <div style={{ flex:1 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap", marginBottom:6 }}>
                   <div style={{ fontFamily:"'DM Mono',monospace", fontSize:11, color:"var(--accent)", letterSpacing:"0.15em", textTransform:"uppercase" }}>{result.category}</div>
-                    {isIngredient && result.essentiality && (
-                    <>
-                        <span className="chem-badge" style={{ background:`${essentialColor[result.essentiality]||"#555"}18`, color:essentialColor[result.essentiality]||"#555", border:`1px solid ${essentialColor[result.essentiality]||"#555"}40` }}>
-                        {essentialLabel[result.essentiality]||result.essentiality.toUpperCase()}
-                        </span>
-                        {(result.essentiality === "essential" || result.essentiality === "essential_but_overconsumed") && (
-                        <span className="chem-badge" style={{ background:`${benefitTag[result.essentiality].color}18`, color:benefitTag[result.essentiality].color, border:`1px solid ${benefitTag[result.essentiality].color}40` }}>
-                            {benefitTag[result.essentiality].label}
-                        </span>
-                        )}
-                    </>
-                    )}
+                  {isIngredient && result.essentiality && (
+                    <span className="chem-badge" style={{ background:`${essentialColor[result.essentiality]||"#555"}18`, color:essentialColor[result.essentiality]||"#555", border:`1px solid ${essentialColor[result.essentiality]||"#555"}40` }}>
+                      {essentialLabel[result.essentiality]||result.essentiality.toUpperCase()}
+                    </span>
+                  )}
                 </div>
                 <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:"2.2rem", fontWeight:700, marginBottom:10 }}>{result.name}</h2>
                 <p style={{ color:"var(--muted)", lineHeight:1.7, fontSize:15, maxWidth:600 }}>{result.summary}</p>
@@ -843,13 +1533,8 @@ export default function App() {
                       <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
                         <span className="chem-name" style={{ fontFamily:"'DM Mono',monospace", fontSize:14, fontWeight:500 }}>{c.name}</span>
                         <span className="chem-badge" style={{ background:`${dangerColor[c.danger]||"#555"}18`, color:dangerColor[c.danger]||"#555", border:`1px solid ${dangerColor[c.danger]||"#555"}40` }}>
-                        {dangerLabel[c.danger]||"UNKNOWN"}
+                          {dangerLabel[c.danger]||"UNKNOWN"}
                         </span>
-                        {c.danger !== "high" && c.danger !== "medium" && c.essentiality && benefitTag[c.essentiality] && (
-                        <span className="chem-badge" style={{ background:`${benefitTag[c.essentiality].color}18`, color:benefitTag[c.essentiality].color, border:`1px solid ${benefitTag[c.essentiality].color}40` }}>
-                            {benefitTag[c.essentiality].label}
-                        </span>
-                        )}
                       </div>
                       <span className="nav-arrow">→</span>
                     </div>
@@ -863,17 +1548,12 @@ export default function App() {
             {activeTab==="found in" && isIngredient && (
               <div className="stagger" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:14 }}>
                 <div style={{ gridColumn:"1 / -1", fontFamily:"'DM Mono',monospace", fontSize:11, color:"#444", letterSpacing:"0.12em", marginBottom:4 }}>// click any food to explore it</div>
-                    {result.foundIn?.map((f,i) => (
-                    <button key={i} className="found-in-card" onClick={() => navigateTo(f.name)} style={{ flexDirection:"column", alignItems:"flex-start", gap:8 }}>
-                        <div style={{ display:"flex", alignItems:"center", gap:14, width:"100%" }}>
-                        <span style={{ fontSize:28, flexShrink:0 }}>{f.emoji}</span>
-                        <span className="food-name" style={{ fontSize:15, flex:1 }}>{f.name}</span>
-                        <span className="nav-arrow">→</span>
-                        </div>
-                        {f.context && (
-                        <p style={{ fontSize:12, color:"var(--muted)", lineHeight:1.55, paddingLeft:42, textAlign:"left" }}>{f.context}</p>
-                        )}
-                </button>
+                {result.foundIn?.map((f,i) => (
+                  <button key={i} className="found-in-card" onClick={() => navigateTo(f.name)}>
+                    <span style={{ fontSize:28 }}>{f.emoji}</span>
+                    <span className="food-name" style={{ fontSize:15, flex:1 }}>{f.name}</span>
+                    <span className="nav-arrow">→</span>
+                  </button>
                 ))}
               </div>
             )}
@@ -902,3 +1582,5 @@ export default function App() {
     </>
   );
 }
+
+
