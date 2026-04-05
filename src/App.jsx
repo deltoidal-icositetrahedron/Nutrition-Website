@@ -85,14 +85,13 @@ Extract all data and respond ONLY with this JSON (no markdown, no backticks):
     "protein": "Xg"
   },
   "ingredients": ["ingredient1", "ingredient2"],
-  "chemicals": [
+"chemicals": [
     {"name": "Additive name", "danger": "high/medium/low", "desc": "What it is and why it is concerning"}
   ],
   "summary": "2-3 sentence overall assessment of this product's healthiness."
 }
 
-Only include genuinely harmful additives in chemicals — artificial preservatives, synthetic dyes, or known carcinogens. Do NOT flag common essential nutrients like sodium, potassium, calcium, iron, vitamins, or natural sugars. Examples of true high risk: Red 40, BHA, BHT, sodium nitrite, TBHQ, carrageenan, aspartame, acesulfame-K, high fructose corn syrup.
-
+IMPORTANT RULES FOR CHEMICALS: Only include genuinely harmful additives such as artificial preservatives, synthetic dyes, or known carcinogens. Do NOT include common essential nutrients like sodium, potassium, calcium, iron, vitamins, or natural sugars. True high risk examples: Red 40, BHA, BHT, sodium nitrite, TBHQ, carrageenan, aspartame, acesulfame-K. Do NOT flag: sodium, potassium, calcium, iron, vitamin C, vitamin D, citric acid, lecithin, natural flavors.
 CASE 2 — If this is a photo of a food (e.g. an apple, pizza, burger, salad):
 Identify the food and respond ONLY with this JSON (no markdown, no backticks):
 {
@@ -301,25 +300,38 @@ function LabelResultPage({ data, onBack, onChemicalClick }) {
         )}
 
         {activeTab === "ingredients" && (
-          <div style={{ background:"#141414", border:"1px solid #2a2a2a", borderRadius:6, padding:"20px 24px" }}>
-            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:"#555", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:8 }}>// full ingredient list</div>
+        <div style={{ background:"#141414", border:"1px solid #2a2a2a", borderRadius:6, padding:"20px 24px" }}>
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:10, color:"#555", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:8 }}>// full ingredient list — click any to explore</div>
             {highRiskChemicals.length > 0 && (
-              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14, fontFamily:"'DM Mono',monospace", fontSize:11, color:"#ff4d4d" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14, fontFamily:"'DM Mono',monospace", fontSize:11, color:"#ff4d4d" }}>
                 <span>⚠</span> High risk ingredients are highlighted in red
-              </div>
+            </div>
             )}
             <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
-              {data.ingredients?.map((ing, i) => (
-                <span key={i}
-                  className={`ing-tag ${isHighRisk(ing) ? "high-risk" : ""}`}
-                  style={{ background:"#1e1e1e", border:"1px solid #333", color:"#e8e6e1" }}
-                  title={isHighRisk(ing) ? "⚠ High risk ingredient" : ""}
+            {data.ingredients?.map((ing, i) => {
+                const simplified = ing
+                .replace(/\s*\[.*?\]/g, "")
+                .replace(/\s*\(.*?\)/g, "")
+                .replace(/,.*$/, "")
+                .trim();
+                const searchTerm = simplified.length > 2 ? simplified : ing.split(/[,([]/)[0].trim();
+                const risk = isHighRisk(ing);
+                return (
+                <button key={i}
+                    className={`ing-tag ${risk ? "high-risk" : ""}`}
+                    onClick={() => onChemicalClick(searchTerm)}
+                    style={{ background: risk ? undefined : "#1e1e1e", border:`1px solid ${risk ? undefined : "#333"}`, color: risk ? undefined : "#e8e6e1", cursor:"pointer", transition:"all 0.2s" }}
+                    onMouseEnter={e => { if (!risk) { e.currentTarget.style.borderColor="var(--accent)"; e.currentTarget.style.color="var(--accent)"; e.currentTarget.style.background="rgba(200,240,100,0.05)"; }}}
+                    onMouseLeave={e => { if (!risk) { e.currentTarget.style.borderColor="#333"; e.currentTarget.style.color="#e8e6e1"; e.currentTarget.style.background="#1e1e1e"; }}}
+                    title={`Search: ${searchTerm}`}
                 >
-                  {isHighRisk(ing) && <span style={{ marginRight:5 }}>⚠</span>}{ing}
-                </span>
-              ))}
+                    {risk && <span style={{ marginRight:5 }}>⚠</span>}{ing}
+                </button>
+                );
+            })}
             </div>
-          </div>
+            <div style={{ marginTop:14, fontFamily:"'DM Mono',monospace", fontSize:10, color:"#444" }}>click any ingredient to explore it →</div>
+        </div>
         )}
 
         {activeTab === "chemicals" && (
